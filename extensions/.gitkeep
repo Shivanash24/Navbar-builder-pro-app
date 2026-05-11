@@ -1,0 +1,23 @@
+<div id="custom-navbar"></div>
+
+<script>
+fetch("/apps/app/navbar")
+.then(res => res.json())
+.then(data => {
+  const nav = document.getElementById("custom-navbar");
+
+  if (!data.navbar) return;
+
+  nav.innerHTML = "";
+
+  data.navbar.menuItems.forEach(item => {
+    const a = document.createElement("a");
+    a.href = item.link;
+    a.innerText = item.title;
+    a.style.margin = "10px";
+    a.style.color = "#000";
+    a.style.textDecoration = "none";
+    nav.appendChild(a);
+  });
+});
+</script>

@@ -1,0 +1,323 @@
+{% assign config = shop.metafields.navbar_builder.config.value %}
+{% assign design_id = config.designId | default: "1" %}
+{% assign menu_items = config.menuItems %}
+
+{% if menu_items == blank %}
+  {% assign menu_items = '[{"label": "Home", "link": "/"}, {"label": "Catalog", "link": "/collections/all"}]' | parse_json %}
+{% endif %}
+
+<style>
+  .navbar-builder-pro {
+    width: 100%;
+    z-index: 1000;
+    box-sizing: border-box;
+    font-family: var(--font-body-family, sans-serif);
+  }
+  .navbar-builder-pro * {
+    box-sizing: border-box;
+  }
+  .nbp-logo {
+    font-size: 24px;
+    font-weight: bold;
+    text-decoration: none;
+    color: inherit;
+  }
+  .nbp-nav-links {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    gap: 20px;
+  }
+  .nbp-nav-link {
+    text-decoration: none;
+    color: inherit;
+    font-weight: 500;
+    transition: opacity 0.2s;
+  }
+  .nbp-nav-link:hover {
+    opacity: 0.7;
+  }
+
+  /* Design 1: Classic Left Logo */
+  .nbp-design-1 {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 5%;
+    background-color: #ffffff;
+    color: #000000;
+    border-bottom: 1px solid #eaeaea;
+  }
+
+  /* Design 2: Centered Split */
+  .nbp-design-2 {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    padding: 15px 5%;
+    background-color: #ffffff;
+    color: #000000;
+    border-bottom: 1px solid #eaeaea;
+  }
+  .nbp-design-2 .nbp-nav-links-left {
+    justify-content: flex-end;
+    padding-right: 20px;
+  }
+  .nbp-design-2 .nbp-nav-links-right {
+    justify-content: flex-start;
+    padding-left: 20px;
+  }
+
+  /* Design 3: Minimal Transparent */
+  .nbp-design-3 {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 5%;
+    background-color: transparent;
+    color: inherit;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+  }
+
+  /* Design 4: Mega Menu (Simplified) */
+  .nbp-design-4 {
+    display: flex;
+    flex-direction: column;
+    background-color: #ffffff;
+    color: #000000;
+    border-bottom: 1px solid #eaeaea;
+  }
+  .nbp-design-4 .nbp-top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 5%;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .nbp-design-4 .nbp-bottom-bar {
+    display: flex;
+    justify-content: center;
+    padding: 10px 5%;
+    background-color: #f9f9f9;
+  }
+
+  /* Design 5: Modern Dark */
+  .nbp-design-5 {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 5%;
+    background-color: #121212;
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  .nbp-design-5 .nbp-nav-link {
+    text-transform: uppercase;
+    font-size: 14px;
+    letter-spacing: 1px;
+  }
+  .nbp-design-5 .nbp-nav-link:hover {
+    color: #00e5ff;
+    opacity: 1;
+  }
+
+  /* Design 6: Sidebar / Hamburger */
+  .nbp-design-6 {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 5%;
+    background-color: #ffffff;
+    color: #000000;
+    border-bottom: 1px solid #eaeaea;
+  }
+  .nbp-hamburger {
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .nbp-hamburger span {
+    display: block;
+    width: 25px;
+    height: 3px;
+    background-color: currentColor;
+    transition: all 0.3s;
+  }
+  .nbp-sidebar {
+    position: fixed;
+    top: 0;
+    left: -300px;
+    width: 300px;
+    height: 100vh;
+    background-color: #ffffff;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+    transition: left 0.3s ease;
+    z-index: 1001;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .nbp-sidebar.open {
+    left: 0;
+  }
+  .nbp-sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    display: none;
+    z-index: 1000;
+  }
+  .nbp-sidebar-overlay.open {
+    display: block;
+  }
+  .nbp-sidebar-close {
+    align-self: flex-end;
+    cursor: pointer;
+    font-size: 24px;
+    font-weight: bold;
+  }
+  .nbp-sidebar-links {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+  }
+  .nbp-sidebar-link {
+    font-size: 18px;
+    text-decoration: none;
+    color: #000000;
+  }
+</style>
+
+<div class="navbar-builder-pro">
+  {% if design_id == "1" %}
+    <div class="nbp-design-1">
+      <a href="/" class="nbp-logo">{{ shop.name }}</a>
+      <ul class="nbp-nav-links">
+        {% for item in menu_items %}
+          <li><a href="{{ item.link }}" class="nbp-nav-link">{{ item.label }}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+
+  {% elsif design_id == "2" %}
+    {% assign half_length = menu_items.size | divided_by: 2 %}
+    <div class="nbp-design-2">
+      <ul class="nbp-nav-links nbp-nav-links-left">
+        {% for item in menu_items limit: half_length %}
+          <li><a href="{{ item.link }}" class="nbp-nav-link">{{ item.label }}</a></li>
+        {% endfor %}
+      </ul>
+      <a href="/" class="nbp-logo" style="text-align: center;">{{ shop.name }}</a>
+      <ul class="nbp-nav-links nbp-nav-links-right">
+        {% for item in menu_items offset: half_length %}
+          <li><a href="{{ item.link }}" class="nbp-nav-link">{{ item.label }}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+
+  {% elsif design_id == "3" %}
+    <div class="nbp-design-3">
+      <a href="/" class="nbp-logo">{{ shop.name }}</a>
+      <ul class="nbp-nav-links">
+        {% for item in menu_items %}
+          <li><a href="{{ item.link }}" class="nbp-nav-link">{{ item.label }}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+
+  {% elsif design_id == "4" %}
+    <div class="nbp-design-4">
+      <div class="nbp-top-bar">
+        <a href="/" class="nbp-logo">{{ shop.name }}</a>
+        <div class="nbp-search-cart" style="display:flex; gap:15px;">
+           <span>Search</span>
+           <span>Cart</span>
+        </div>
+      </div>
+      <div class="nbp-bottom-bar">
+        <ul class="nbp-nav-links">
+          {% for item in menu_items %}
+            <li><a href="{{ item.link }}" class="nbp-nav-link">{{ item.label }}</a></li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+
+  {% elsif design_id == "5" %}
+    <div class="nbp-design-5">
+      <a href="/" class="nbp-logo">{{ shop.name }}</a>
+      <ul class="nbp-nav-links">
+        {% for item in menu_items %}
+          <li><a href="{{ item.link }}" class="nbp-nav-link">{{ item.label }}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+
+  {% elsif design_id == "6" %}
+    <div class="nbp-design-6">
+      <div class="nbp-hamburger" id="nbp-hamburger-btn">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+      <a href="/" class="nbp-logo">{{ shop.name }}</a>
+      <div style="width: 25px;"></div> <!-- placeholder to center logo -->
+    </div>
+
+    <div class="nbp-sidebar-overlay" id="nbp-sidebar-overlay"></div>
+    <div class="nbp-sidebar" id="nbp-sidebar">
+      <div class="nbp-sidebar-close" id="nbp-sidebar-close">&times;</div>
+      <div class="nbp-sidebar-links">
+        <a href="/" class="nbp-sidebar-link">Home</a>
+        {% for item in menu_items %}
+          <a href="{{ item.link }}" class="nbp-sidebar-link">{{ item.label }}</a>
+        {% endfor %}
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        var btn = document.getElementById("nbp-hamburger-btn");
+        var close = document.getElementById("nbp-sidebar-close");
+        var sidebar = document.getElementById("nbp-sidebar");
+        var overlay = document.getElementById("nbp-sidebar-overlay");
+
+        if(btn) {
+          btn.addEventListener("click", function() {
+            sidebar.classList.add("open");
+            overlay.classList.add("open");
+          });
+        }
+        if(close) {
+          close.addEventListener("click", function() {
+            sidebar.classList.remove("open");
+            overlay.classList.remove("open");
+          });
+        }
+        if(overlay) {
+          overlay.addEventListener("click", function() {
+            sidebar.classList.remove("open");
+            overlay.classList.remove("open");
+          });
+        }
+      });
+    </script>
+  {% endif %}
+</div>
+
+{% schema %}
+{
+  "name": "Navbar Builder Pro",
+  "target": "section",
+  "settings": []
+}
+{% endschema %}
