@@ -50,7 +50,7 @@ export default function TermsAndConditions() {
 
       <h2>9. Contact Us</h2>
       <p>
-        If you have any questions about these Terms, please contact us at support@navbarbuilderpro.com.
+        If you have any questions about these Terms, please contact us at shivpareek220@gmail.com.
       </p>
     </div>
   );

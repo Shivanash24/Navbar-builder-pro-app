@@ -52,7 +52,7 @@ export default function PrivacyPolicy() {
 
       <h2>7. Contact Us</h2>
       <p>
-        For more information about our privacy practices, if you have questions, or if you would like to make a complaint, please contact us by email at support@navbarbuilderpro.com.
+        For more information about our privacy practices, if you have questions, or if you would like to make a complaint, please contact us by email at shivpareek220@gmail.com.
       </p>
     </div>
   );
