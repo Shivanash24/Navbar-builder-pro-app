@@ -44,10 +44,9 @@ api_version = "2026-07"
   uri = "/webhooks/app/scopes_update"
   topics = [ "app/scopes_update" ]
 
-  [webhooks.privacy_compliance]
-  customer_data_request_url = "/webhooks/customers/data_request"
-  customer_deletion_url = "/webhooks/customers/redact"
-  shop_deletion_url = "/webhooks/shop/redact"
+  [[webhooks.subscriptions]]
+  compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
+  uri = "/webhooks/gdpr"
 
 [auth]
 redirect_urls = [ "https://example.com/api/auth" ]
