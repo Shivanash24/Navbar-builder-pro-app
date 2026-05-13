@@ -1,7 +1,7 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "d0dce620845c55edbc5a4784099b61c9"
-application_url = "https://example.com"
+application_url = "https://navbar-builder-pro-app.vercel.app"
 embedded = true
 name = "Navbar Builder Pro"
 
@@ -49,7 +49,7 @@ api_version = "2026-07"
   uri = "/webhooks/gdpr"
 
 [auth]
-redirect_urls = [ "https://example.com/api/auth" ]
+redirect_urls = [ "https://navbar-builder-pro-app.vercel.app/api/auth" ]
 
 [build]
 automatically_update_urls_on_dev = true
