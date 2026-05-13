@@ -30,3 +30,4 @@ database.sqlite
 .react-router/.vercel/
 .react-router/
 test-gdpr-webhooks.js
+.vercel/
