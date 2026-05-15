@@ -37,7 +37,7 @@ if (host === "localhost") {
 
 export default defineConfig({
   server: {
-    allowedHosts: [host],
+    allowedHosts: true, // Allow all hosts to prevent Cloudflare tunnel blocks
     cors: {
       preflightContinue: true,
     },
