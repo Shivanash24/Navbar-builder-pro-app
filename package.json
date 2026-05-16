@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "build": "prisma generate && prisma db push --accept-data-loss && react-router build",
-    "dev": "shopify app dev",
+    "dev": "shopify app dev --tunnel-url https://embark-pantry-broadside.ngrok-free.dev",
     "config:link": "shopify app config link",
     "generate": "shopify app generate",
     "deploy": "shopify app deploy",
