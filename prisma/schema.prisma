@@ -37,7 +37,7 @@ model Session {
 }
 model Navbar {
   id        Int    @id @default(autoincrement())
-  shop      String @unique
+  shop      String @unique  
   designId  String
   menuItems Json
   plan      String @default("free")

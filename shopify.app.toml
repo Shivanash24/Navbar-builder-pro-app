@@ -53,3 +53,7 @@ redirect_urls = [ "https://navbar-builder-pro-app.vercel.app/api/auth" ]
 
 [build]
 automatically_update_urls_on_dev = true
+
+[billing]
+"Starter Plan" = { amount = 49.0, currency_code = "USD", interval = "EVERY_30_DAYS" }
+"Pro Plan" = { amount = 99.0, currency_code = "USD", interval = "EVERY_30_DAYS" }

@@ -21,24 +21,33 @@ export const loader = async ({ request }) => {
 };
 
 export const action = async ({ request }) => {
-  const { billing } = await authenticate.admin(request);
+  const { session, billing } = await authenticate.admin(request);
+  const shop = session.shop;
   const formData = await request.formData();
   const planType = formData.get("planType");
   const planName = planType === "starter" ? "Starter Plan" : "Pro Plan";
+
+  console.log(`[pricing action] shop=${shop} requesting_plan=${planName}`);
+
   try {
     const billingCheck = await billing.check({ plans: ["Starter Plan", "Pro Plan"], isTest: true });
-    if (getPlanFromBilling(billingCheck) === planType) {
+    const currentPlan = getPlanFromBilling(billingCheck);
+
+    if (currentPlan === planType) {
       return Response.json({ success: true, message: `Already on ${planName}.` });
     }
-    if (billingCheck.hasActivePayment) {
-      for (const sub of billingCheck.appSubscriptions ?? []) {
-        try { await billing.cancel({ subscriptionId: sub.id, isTest: true, prorate: true }); } catch {}
-      }
-    }
-    return await billing.request({ plan: planName, isTest: true, returnUrl: `https://${new URL(request.url).host}/app/billing` });
+
+    // Request the new plan (triggers App Bridge top-level redirect)
+    return await billing.request({ 
+      plan: planName, 
+      isTest: true, 
+      returnUrl: `https://${new URL(request.url).host}/app/billing` 
+    });
   } catch (error) {
     if (error instanceof Response) throw error;
-    return Response.json({ success: false, error: error.message || "Billing failed." });
+    
+    console.error("[pricing action] error:", error?.message || error);
+    return Response.json({ success: false, error: error.message || "Billing failed." }, { status: 500 });
   }
 };
 

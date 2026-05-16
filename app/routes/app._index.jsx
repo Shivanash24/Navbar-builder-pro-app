@@ -160,15 +160,14 @@ export default function Dashboard() {
     const { requiredPlan } = upgradeModal;
     setUpgradeModal({ open:false, requiredPlan:null });
     setBillingLoading(true);
-    try {
-      const fd = new FormData(); fd.append("planType", requiredPlan);
-      const res = await fetch("/app/billing", { method:"POST", body: fd });
-      const data = await res.json().catch(() => ({}));
-      if (data?.error) { setToastMessage(data.error); setToastActive(true); }
-      else if (data?.success) { revalidator.revalidate(); }
-    } catch (e) {
-      if (!(e instanceof Response)) { setToastMessage("Something went wrong."); setToastActive(true); }
-    } finally { setBillingLoading(false); }
+    
+    // Using submit instead of fetch to ensure App Bridge adds the session token
+    // action points to /app/billing to reuse its logic
+    const fd = new FormData();
+    fd.append("planType", requiredPlan);
+    submit(fd, { method: "post", action: "/app/billing" });
+    
+    // We don't need to await the response here as submit will cause a navigation/redirect
   };
 
   const renderLivePreview = () => {
