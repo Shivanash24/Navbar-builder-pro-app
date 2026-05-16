@@ -49,7 +49,7 @@ api_version = "2026-07"
   uri = "/webhooks/gdpr"
 
 [auth]
-redirect_urls = [ "https://navbar-builder-pro-app.vercel.app/api/auth" ]
+redirect_urls = [ "https://navbar-builder-pro-app.vercel.app/auth/callback" ]
 
 [build]
 automatically_update_urls_on_dev = true

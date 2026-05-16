@@ -52,6 +52,9 @@ export async function loader({ request }) {
 // ─── Action ────────────────────────────────────────────────────────────────────
 // Called when user clicks an "Upgrade" button.
 export async function action({ request }) {
+  console.log(`[billing action] Incoming request: ${request.method} ${request.url}`);
+  console.log(`[billing action] Authorization header: ${request.headers.get("Authorization") ? "Present" : "Missing"}`);
+
   const { session, billing } = await authenticate.admin(request);
   const shop = session.shop;
 
@@ -83,12 +86,13 @@ export async function action({ request }) {
     }
 
     // ── 2. Request the new plan (triggers App Bridge top-level redirect) ────────
-    // Shopify handles cancellation of existing subscriptions automatically when requesting a new one of the same type/interval in many cases,
-    // but explicit request is best.
+    const url = new URL(request.url);
+    const returnUrl = `https://${url.host}/app/billing?shop=${shop}`;
+
     return await billing.request({
       plan: planName,
       isTest: true,
-      returnUrl: `https://${new URL(request.url).host}/app/billing`,
+      returnUrl,
     });
 
   } catch (error) {

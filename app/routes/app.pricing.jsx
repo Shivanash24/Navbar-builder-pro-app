@@ -21,6 +21,9 @@ export const loader = async ({ request }) => {
 };
 
 export const action = async ({ request }) => {
+  console.log(`[pricing action] Incoming request: ${request.method} ${request.url}`);
+  console.log(`[pricing action] Authorization header: ${request.headers.get("Authorization") ? "Present" : "Missing"}`);
+  
   const { session, billing } = await authenticate.admin(request);
   const shop = session.shop;
   const formData = await request.formData();
@@ -38,10 +41,13 @@ export const action = async ({ request }) => {
     }
 
     // Request the new plan (triggers App Bridge top-level redirect)
+    const url = new URL(request.url);
+    const returnUrl = `https://${url.host}/app/billing?shop=${shop}`;
+
     return await billing.request({ 
       plan: planName, 
       isTest: true, 
-      returnUrl: `https://${new URL(request.url).host}/app/billing` 
+      returnUrl 
     });
   } catch (error) {
     if (error instanceof Response) throw error;
