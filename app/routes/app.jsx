@@ -40,6 +40,18 @@ export default function App() {
 export function ErrorBoundary() {
   const error = useRouteError();
   console.error("ErrorBoundary caught:", error);
+  
+  if (error?.status === 401 && typeof window !== "undefined") {
+    const shop = new URL(window.location.href).searchParams.get("shop");
+    const authUrl = `/auth${shop ? `?shop=${shop}` : ""}`;
+    if (window.shopify) {
+      window.open(authUrl, "_top");
+    } else {
+      window.parent.location.href = authUrl;
+    }
+    return null;
+  }
+
   return boundary.error(error);
 }
 
