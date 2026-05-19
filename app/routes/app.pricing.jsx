@@ -59,7 +59,16 @@ export const action = async ({ request }) => {
       returnUrl 
     });
   } catch (error) {
-    if (error instanceof Response) throw error;
+    if (error instanceof Response) {
+      const authUrl = error.headers.get("X-Shopify-API-Request-Failure-Reauthorize-Url");
+      const location = error.headers.get("Location");
+      const redirectUrl = authUrl || location;
+      
+      if (redirectUrl) {
+        return Response.json({ redirectUrl });
+      }
+      throw error;
+    }
     
     console.error("[pricing action] error:", error?.message || error);
     return Response.json({ success: false, error: error.message || "Billing failed." }, { status: 500 });
@@ -77,6 +86,14 @@ export default function PricingPage() {
   const isLoading = navigation.state === "submitting";
 
   useEffect(() => {
+    if (actionData?.redirectUrl && typeof window !== "undefined") {
+      if (window.shopify) {
+        window.open(actionData.redirectUrl, "_top");
+      } else {
+        window.parent.location.href = actionData.redirectUrl;
+      }
+      return;
+    }
     if (actionData?.message) { setToastMsg(actionData.message); setToastActive(true); }
     if (actionData?.error)   { setToastMsg(actionData.error);   setToastActive(true); }
   }, [actionData]);

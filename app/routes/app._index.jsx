@@ -153,6 +153,14 @@ export default function Dashboard() {
   }, [plan, menuItems, submit]);
 
   useEffect(() => {
+    if (actionData?.redirectUrl && typeof window !== "undefined") {
+      if (window.shopify) {
+        window.open(actionData.redirectUrl, "_top");
+      } else {
+        window.parent.location.href = actionData.redirectUrl;
+      }
+      return;
+    }
     if (actionData?.success) { setToastMessage(actionData.message || "Done!"); setToastActive(true); }
     else if (actionData?.error) { setToastMessage(actionData.error); setToastActive(true); }
   }, [actionData]);

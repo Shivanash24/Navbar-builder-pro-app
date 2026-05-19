@@ -97,9 +97,16 @@ export async function action({ request }) {
     });
 
   } catch (error) {
-    // IMPORTANT: billing.request() throws a Response redirect — we MUST re-throw it 
-    // so that Remix/App Bridge can handle the top-level redirect.
-    if (error instanceof Response) throw error;
+    if (error instanceof Response) {
+      const authUrl = error.headers.get("X-Shopify-API-Request-Failure-Reauthorize-Url");
+      const location = error.headers.get("Location");
+      const redirectUrl = authUrl || location;
+      
+      if (redirectUrl) {
+        return json({ redirectUrl });
+      }
+      throw error;
+    }
 
     console.error("[billing action] error:", error?.message || error);
     return json({
