@@ -40,4 +40,4 @@ model Navbar {
   designId  String
   menuItems Json
   plan      String @default("free")
-}
+} 

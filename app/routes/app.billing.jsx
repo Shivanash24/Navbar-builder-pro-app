@@ -14,7 +14,7 @@ export async function loader({ request }) {
   try {
     const billingCheck = await billing.check({
       plans: ["Starter Plan", "Pro Plan"],
-      isTest: true,
+      isTest: process.env.NODE_ENV !== "production",
     });
 
     const plan = getPlanFromBilling(billingCheck);
@@ -42,6 +42,7 @@ export async function loader({ request }) {
     }
 
   } catch (error) {
+    if (error instanceof Response) throw error;
     console.error("[billing loader] error:", error?.message || error);
   }
   
@@ -73,7 +74,7 @@ export async function action({ request }) {
     // ── 1. Check current status ──────────────────────────────────────────────
     const billingCheck = await billing.check({
       plans: ["Starter Plan", "Pro Plan"],
-      isTest: true,
+      isTest: process.env.NODE_ENV !== "production",
     });
 
     const currentPlan = getPlanFromBilling(billingCheck);
@@ -91,7 +92,7 @@ export async function action({ request }) {
 
     return await billing.request({
       plan: planName,
-      isTest: true,
+      isTest: process.env.NODE_ENV !== "production",
       returnUrl,
     });
 

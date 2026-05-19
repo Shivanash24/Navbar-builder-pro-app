@@ -13,9 +13,15 @@ export const loader = async ({ request }) => {
 
   let plan = "free";
   try {
-    const billingCheck = await billing.check({ plans: ["Starter Plan", "Pro Plan"], isTest: true });
+    const billingCheck = await billing.check({
+      plans: ["Starter Plan", "Pro Plan"],
+      isTest: process.env.NODE_ENV !== "production",
+    });
     plan = getPlanFromBilling(billingCheck);
-  } catch (e) { console.error("[index loader] billing check:", e?.message); }
+  } catch (e) {
+    if (e instanceof Response) throw e;
+    console.error("[index loader] billing check:", e?.message);
+  }
 
   let navbar = await prisma.navbar.findUnique({ where: { shop } });
   if (!navbar) {
@@ -44,9 +50,15 @@ export const action = async ({ request }) => {
   if (actionType === "apply") {
     let plan = "free";
     try {
-      const billingCheck = await billing.check({ plans: ["Starter Plan", "Pro Plan"], isTest: true });
+      const billingCheck = await billing.check({
+        plans: ["Starter Plan", "Pro Plan"],
+        isTest: process.env.NODE_ENV !== "production",
+      });
       plan = getPlanFromBilling(billingCheck);
-    } catch (e) { console.error("[index action] billing:", e?.message); }
+    } catch (e) {
+      if (e instanceof Response) throw e;
+      console.error("[index action] billing:", e?.message);
+    }
 
     if (!canAccessDesign(designId, plan)) {
       return Response.json({ success: false, error: `This design requires the ${getRequiredPlan(designId)} plan.` });

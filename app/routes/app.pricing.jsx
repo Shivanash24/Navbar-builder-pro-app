@@ -9,14 +9,20 @@ export const loader = async ({ request }) => {
   const { session, billing } = await authenticate.admin(request);
   let plan = "free";
   try {
-    const billingCheck = await billing.check({ plans: ["Starter Plan", "Pro Plan"], isTest: true });
+    const billingCheck = await billing.check({
+      plans: ["Starter Plan", "Pro Plan"],
+      isTest: process.env.NODE_ENV !== "production",
+    });
     plan = getPlanFromBilling(billingCheck);
     await prisma.navbar.upsert({
       where: { shop: session.shop },
       update: { plan },
       create: { shop: session.shop, plan, designId: "1", menuItems: JSON.stringify([{ id:"1", label:"Home", link:"/" }]) },
     });
-  } catch (e) { console.error("[pricing loader]", e?.message); }
+  } catch (e) {
+    if (e instanceof Response) throw e;
+    console.error("[pricing loader]", e?.message);
+  }
   return Response.json({ plan });
 };
 
@@ -33,7 +39,10 @@ export const action = async ({ request }) => {
   console.log(`[pricing action] shop=${shop} requesting_plan=${planName}`);
 
   try {
-    const billingCheck = await billing.check({ plans: ["Starter Plan", "Pro Plan"], isTest: true });
+    const billingCheck = await billing.check({
+      plans: ["Starter Plan", "Pro Plan"],
+      isTest: process.env.NODE_ENV !== "production",
+    });
     const currentPlan = getPlanFromBilling(billingCheck);
 
     if (currentPlan === planType) {
@@ -46,7 +55,7 @@ export const action = async ({ request }) => {
 
     return await billing.request({ 
       plan: planName, 
-      isTest: true, 
+      isTest: process.env.NODE_ENV !== "production", 
       returnUrl 
     });
   } catch (error) {
