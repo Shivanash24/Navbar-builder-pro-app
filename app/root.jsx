@@ -14,22 +14,40 @@ export default function App() {
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
-                const originalAdd = EventTarget.prototype.addEventListener;
-                const originalRemove = EventTarget.prototype.removeEventListener;
-                EventTarget.prototype.addEventListener = function(type, listener, options) {
-                  if (type === 'unload') {
-                    originalAdd.call(this, 'pagehide', listener, options);
-                  } else {
-                    originalAdd.call(this, type, listener, options);
-                  }
-                };
-                EventTarget.prototype.removeEventListener = function(type, listener, options) {
-                  if (type === 'unload') {
-                    originalRemove.call(this, 'pagehide', listener, options);
-                  } else {
-                    originalRemove.call(this, type, listener, options);
-                  }
-                };
+                function patchAddEventListener(obj) {
+                  if (!obj || !obj.addEventListener) return;
+                  const originalAdd = obj.addEventListener;
+                  const originalRemove = obj.removeEventListener;
+                  obj.addEventListener = function(type, listener, options) {
+                    if (type === 'unload') {
+                      originalAdd.call(this, 'pagehide', listener, options);
+                    } else {
+                      originalAdd.call(this, type, listener, options);
+                    }
+                  };
+                  obj.removeEventListener = function(type, listener, options) {
+                    if (type === 'unload') {
+                      originalRemove.call(this, 'pagehide', listener, options);
+                    } else {
+                      originalRemove.call(this, type, listener, options);
+                    }
+                  };
+                }
+                
+                patchAddEventListener(EventTarget.prototype);
+                patchAddEventListener(window);
+                patchAddEventListener(document);
+                
+                if (typeof Object.defineProperty === 'function') {
+                  Object.defineProperty(window, 'onunload', {
+                    configurable: true,
+                    enumerable: true,
+                    set: function(listener) {
+                      window.addEventListener('pagehide', listener);
+                    },
+                    get: function() { return null; }
+                  });
+                }
               })();
             `
           }}

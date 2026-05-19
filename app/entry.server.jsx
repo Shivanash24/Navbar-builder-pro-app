@@ -14,6 +14,16 @@ export default async function handleRequest(
   reactRouterContext,
 ) {
   addDocumentResponseHeaders(request, responseHeaders);
+  
+  const permissionsPolicy = responseHeaders.get("Permissions-Policy");
+  if (permissionsPolicy) {
+    responseHeaders.set(
+      "Permissions-Policy", 
+      permissionsPolicy.replace(/unload=\(\)/g, "unload=*")
+    );
+  } else {
+    responseHeaders.set("Permissions-Policy", "unload=*");
+  }
   const userAgent = request.headers.get("user-agent");
   const callbackName = isbot(userAgent ?? "") ? "onAllReady" : "onShellReady";
 
