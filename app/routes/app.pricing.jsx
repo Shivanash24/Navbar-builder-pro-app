@@ -81,10 +81,14 @@ export default function PricingPage() {
     if (actionData?.error)   { setToastMsg(actionData.error);   setToastActive(true); }
   }, [actionData]);
 
-  const upgrade = (planType) => {
+  const upgrade = async (planType) => {
     const fd = new FormData();
     fd.append("planType", planType);
-    submit(fd, { method: "post" });
+    
+    // Explicitly inject the id_token into the URL to ensure authentication works 
+    // even if App Bridge fails to intercept the React Router fetch call.
+    const token = await window.shopify.idToken();
+    submit(fd, { method: "post", action: `/app/pricing?id_token=${token}` });
   };
 
   const planLabel = { free: "Free", starter: "Starter", pro: "Pro" }[plan] ?? "Free";

@@ -157,7 +157,7 @@ export default function Dashboard() {
     else if (actionData?.error) { setToastMessage(actionData.error); setToastActive(true); }
   }, [actionData]);
 
-  const handleApply = (design) => {
+  const handleApply = async (design) => {
     if (!canAccessDesign(design.id, plan)) {
       setUpgradeModal({ open:true, requiredPlan: design.requiredPlan });
       return;
@@ -165,7 +165,9 @@ export default function Dashboard() {
     setSelectedDesign(design.id);
     const fd = new FormData();
     fd.append("designId", design.id); fd.append("menuItems", JSON.stringify(menuItems)); fd.append("actionType", "apply");
-    submit(fd, { method:"post" });
+    
+    const token = await window.shopify.idToken();
+    submit(fd, { method:"post", action: `/app?id_token=${token}` });
   };
 
   const confirmUpgrade = async () => {
@@ -173,13 +175,11 @@ export default function Dashboard() {
     setUpgradeModal({ open:false, requiredPlan:null });
     setBillingLoading(true);
     
-    // Using submit instead of fetch to ensure App Bridge adds the session token
-    // action points to /app/billing to reuse its logic
     const fd = new FormData();
     fd.append("planType", requiredPlan);
-    submit(fd, { method: "post", action: "/app/billing" });
     
-    // We don't need to await the response here as submit will cause a navigation/redirect
+    const token = await window.shopify.idToken();
+    submit(fd, { method: "post", action: `/app/billing?id_token=${token}` });
   };
 
   const renderLivePreview = () => {
