@@ -1,80 +1,124 @@
 import { useEffect, useState, useCallback } from "react";
 import { useLoaderData, useSubmit, useNavigation, useActionData } from "react-router";
-import { Page, Card, Text, BlockStack, InlineStack, Box, Badge, Frame, Toast, Banner } from "@shopify/polaris";
+import {
+  Page, Card, Text, BlockStack, InlineStack, Box,
+  Badge, Frame, Toast, Banner,
+} from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
+import { isTestBilling } from "../shopify.server";
 import prisma from "../db.server";
 import { getPlanFromBilling } from "../utils/planAccess";
 
+// ─── Loader ────────────────────────────────────────────────────────────────────
 export const loader = async ({ request }) => {
   const { session, billing } = await authenticate.admin(request);
-  let plan = "free";
+  const shop = session.shop;
+
+  // Fetch DB record first as baseline
+  const navbarRecord = await prisma.navbar.findUnique({ where: { shop } });
+  let plan = navbarRecord?.plan || "free"; // DB value as starting point
+
   try {
     const billingCheck = await billing.check({
       plans: ["Starter Plan", "Pro Plan"],
-      isTest: process.env.NODE_ENV !== "production",
+      isTest: isTestBilling,
     });
     plan = getPlanFromBilling(billingCheck);
+    console.log(`[pricing loader] shop=${shop} plan=${plan} hasActivePayment=${billingCheck.hasActivePayment}`);
+
+    // Sync confirmed plan to DB
     await prisma.navbar.upsert({
-      where: { shop: session.shop },
+      where: { shop },
       update: { plan },
-      create: { shop: session.shop, plan, designId: "1", menuItems: JSON.stringify([{ id:"1", label:"Home", link:"/" }]) },
+      create: {
+        shop,
+        plan,
+        designId: "1",
+        menuItems: JSON.stringify([{ id: "1", label: "Home", link: "/" }]),
+      },
     });
   } catch (e) {
     if (e instanceof Response) throw e;
-    console.error("[pricing loader]", e?.message);
+    // billing.check() failed — we'll display the DB plan value instead of forcing "free"
+    console.error(`[pricing loader] billing check failed, using DB plan="${plan}":`, e?.message);
   }
+
   return Response.json({ plan });
 };
 
+
+// ─── Action ────────────────────────────────────────────────────────────────────
 export const action = async ({ request }) => {
-  console.log(`[pricing action] Incoming request: ${request.method} ${request.url}`);
-  console.log(`[pricing action] Authorization header: ${request.headers.get("Authorization") ? "Present" : "Missing"}`);
-  
+  console.log(`[pricing action] ${request.method} ${request.url}`);
+
   const { session, billing } = await authenticate.admin(request);
   const shop = session.shop;
   const formData = await request.formData();
   const planType = formData.get("planType");
-  const planName = planType === "starter" ? "Starter Plan" : "Pro Plan";
 
-  console.log(`[pricing action] shop=${shop} requesting_plan=${planName}`);
+  if (!planType || !["starter", "pro"].includes(planType)) {
+    return Response.json(
+      { success: false, error: "Invalid plan type." },
+      { status: 400 }
+    );
+  }
+
+  const planName = planType === "starter" ? "Starter Plan" : "Pro Plan";
+  console.log(`[pricing action] shop=${shop} requesting_plan=${planName} isTest=${isTestBilling}`);
+
+  // Build returnUrl from SHOPIFY_APP_URL — NEVER use request.url host
+  const appUrl = process.env.SHOPIFY_APP_URL;
+  if (!appUrl) {
+    console.error("[pricing action] SHOPIFY_APP_URL is not set!");
+    return Response.json(
+      { success: false, error: "App configuration error. Please contact support." },
+      { status: 500 }
+    );
+  }
+  const returnUrl = `${appUrl}/app/billing`;
+  console.log(`[pricing action] returnUrl=${returnUrl}`);
 
   try {
-    const billingCheck = await billing.check({
-      plans: ["Starter Plan", "Pro Plan"],
-      isTest: process.env.NODE_ENV !== "production",
+    await billing.request({
+      plan: planName,
+      isTest: isTestBilling,
+      returnUrl,
     });
-    const currentPlan = getPlanFromBilling(billingCheck);
 
-    if (currentPlan === planType) {
-      return Response.json({ success: true, message: `Already on ${planName}.` });
-    }
-
-    // Request the new plan (triggers App Bridge top-level redirect)
-    const url = new URL(request.url);
-    const returnUrl = `https://${url.host}/app/billing?shop=${shop}`;
-
-    return await billing.request({ 
-      plan: planName, 
-      isTest: process.env.NODE_ENV !== "production", 
-      returnUrl 
-    });
+    return Response.json({ success: true });
   } catch (error) {
     if (error instanceof Response) {
-      const authUrl = error.headers.get("X-Shopify-API-Request-Failure-Reauthorize-Url");
+      // Extract the Shopify billing URL — NEVER re-throw this Response.
+      // Re-throwing causes React Router to follow the 302 inside the iframe,
+      // which breaks App Bridge top-level navigation to the billing page.
       const location = error.headers.get("Location");
-      const redirectUrl = authUrl || location;
-      
-      if (redirectUrl) {
-        return Response.json({ redirectUrl });
+      console.log(`[pricing action] Billing redirect URL: ${location ?? "none"} (status=${error.status})`);
+
+      if (location) {
+        return Response.json({ redirectUrl: location });
       }
-      throw error;
+
+      // Re-auth redirect from Shopify
+      const reAuthUrl = error.headers.get("X-Shopify-API-Request-Failure-Reauthorize-Url");
+      if (reAuthUrl) {
+        return Response.json({ redirectUrl: reAuthUrl });
+      }
+
+      throw error; // Truly unrecognised Response — propagate
     }
-    
-    console.error("[pricing action] error:", error?.message || error);
-    return Response.json({ success: false, error: error.message || "Billing failed." }, { status: 500 });
+
+    console.error("[pricing action] Unexpected error:", error?.message || error);
+    return Response.json(
+      {
+        success: false,
+        error: error?.message || "Billing request failed. Please try again.",
+      },
+      { status: 500 }
+    );
   }
 };
 
+// ─── Component ─────────────────────────────────────────────────────────────────
 export default function PricingPage() {
   const { plan } = useLoaderData();
   const actionData = useActionData();
@@ -82,30 +126,53 @@ export default function PricingPage() {
   const navigation = useNavigation();
   const [toastActive, setToastActive] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
-  const toggleToast = useCallback(() => setToastActive(v => !v), []);
+  const toggleToast = useCallback(() => setToastActive((v) => !v), []);
   const isLoading = navigation.state === "submitting";
 
   useEffect(() => {
-    if (actionData?.redirectUrl && typeof window !== "undefined") {
-      if (window.shopify) {
-        window.open(actionData.redirectUrl, "_top");
-      } else {
-        window.parent.location.href = actionData.redirectUrl;
+    if (!actionData) return;
+
+    // The pricing action now returns { redirectUrl } (the Shopify billing page URL).
+    // We must use App Bridge's redirectToExternalUrl to navigate the TOP-LEVEL window.
+    // Using window.open or iframe navigation breaks the embedded app context.
+    if (actionData.redirectUrl) {
+      console.log("[pricing page] Redirecting to Shopify billing:", actionData.redirectUrl);
+      if (typeof window !== "undefined") {
+        if (window.shopify?.redirectToExternalUrl) {
+          window.shopify.redirectToExternalUrl({ url: actionData.redirectUrl });
+        } else if (window.shopify?.openExternalUrl) {
+          window.shopify.openExternalUrl(actionData.redirectUrl);
+        } else {
+          window.parent.location.href = actionData.redirectUrl;
+        }
       }
       return;
     }
-    if (actionData?.message) { setToastMsg(actionData.message); setToastActive(true); }
-    if (actionData?.error)   { setToastMsg(actionData.error);   setToastActive(true); }
+
+    if (actionData.message) {
+      setToastMsg(actionData.message);
+      setToastActive(true);
+    }
+    if (actionData.error) {
+      setToastMsg(actionData.error);
+      setToastActive(true);
+    }
   }, [actionData]);
 
   const upgrade = async (planType) => {
     const fd = new FormData();
     fd.append("planType", planType);
-    
-    // Explicitly inject the id_token into the URL to ensure authentication works 
-    // even if App Bridge fails to intercept the React Router fetch call.
-    const token = await window.shopify.idToken();
-    submit(fd, { method: "post", action: `/app/pricing?id_token=${token}` });
+
+    // Inject the Shopify session token so authenticate.admin() works
+    // even when App Bridge doesn't auto-inject it into fetch requests.
+    try {
+      const token = await window.shopify.idToken();
+      submit(fd, { method: "post", action: `/app/pricing?id_token=${token}` });
+    } catch (e) {
+      console.error("[pricing] Failed to get idToken:", e);
+      // Fallback: submit without token (may work if session cookie is valid)
+      submit(fd, { method: "post" });
+    }
   };
 
   const planLabel = { free: "Free", starter: "Starter", pro: "Pro" }[plan] ?? "Free";
@@ -269,11 +336,19 @@ export default function PricingPage() {
                 {plan === "starter" ? (
                   <div className="current-badge">✓ Current Plan</div>
                 ) : plan === "pro" ? (
-                  <button className="upgrade-btn upgrade-btn-starter" onClick={() => upgrade("starter")} disabled={isLoading}>
+                  <button
+                    className="upgrade-btn upgrade-btn-starter"
+                    onClick={() => upgrade("starter")}
+                    disabled={isLoading}
+                  >
                     {isLoading ? "Processing..." : "Switch to Starter"}
                   </button>
                 ) : (
-                  <button className="upgrade-btn upgrade-btn-starter" onClick={() => upgrade("starter")} disabled={isLoading}>
+                  <button
+                    className="upgrade-btn upgrade-btn-starter"
+                    onClick={() => upgrade("starter")}
+                    disabled={isLoading}
+                  >
                     {isLoading ? "Processing..." : "Upgrade to Starter →"}
                   </button>
                 )}
@@ -298,9 +373,15 @@ export default function PricingPage() {
                 </div>
                 <div className="pricing-divider" />
                 {plan === "pro" ? (
-                  <div className="current-badge" style={{ background:"#312e81", color:"#a5b4fc" }}>✓ Current Plan</div>
+                  <div className="current-badge" style={{ background: "#312e81", color: "#a5b4fc" }}>
+                    ✓ Current Plan
+                  </div>
                 ) : (
-                  <button className="upgrade-btn upgrade-btn-pro" onClick={() => upgrade("pro")} disabled={isLoading}>
+                  <button
+                    className="upgrade-btn upgrade-btn-pro"
+                    onClick={() => upgrade("pro")}
+                    disabled={isLoading}
+                  >
                     {isLoading ? "Processing..." : "Upgrade to Pro →"}
                   </button>
                 )}
@@ -314,7 +395,8 @@ export default function PricingPage() {
                 <BlockStack gap="200">
                   <Text variant="headingSm">Free Plan (Always Included)</Text>
                   <Text variant="bodyMd" tone="subdued">
-                    Design 1 (Classic Left Logo) is always free — no subscription required. Your store always has at least one beautiful navbar.
+                    Design 1 (Classic Left Logo) is always free — no subscription required.
+                    Your store always has at least one beautiful navbar.
                   </Text>
                 </BlockStack>
               </Box>

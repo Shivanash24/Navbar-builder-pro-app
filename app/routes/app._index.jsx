@@ -3,6 +3,7 @@ import { useActionData, useLoaderData, useNavigation, useSubmit, useRevalidator 
 import { Page, Layout, Card, Button, Text, BlockStack, InlineStack, Box, Badge, Grid, TextField, Icon, Modal, Banner, Toast, Frame, Spinner } from "@shopify/polaris";
 import { DeleteIcon, LockIcon, ViewIcon, StarFilledIcon } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
+import { isTestBilling } from "../shopify.server";
 import prisma from "../db.server";
 import { getPlanFromBilling, canAccessDesign, getRequiredPlan } from "../utils/planAccess";
 
@@ -11,31 +12,55 @@ export const loader = async ({ request }) => {
   const { session, billing } = await authenticate.admin(request);
   const shop = session.shop;
 
-  let plan = "free";
+  // Step 1: Fetch the DB record first (always available, even if billing API fails)
+  let navbar = await prisma.navbar.findUnique({ where: { shop } });
+  if (!navbar) {
+    navbar = {
+      designId: "1",
+      menuItems: [
+        { id: "1", label: "Home", link: "/" },
+        { id: "2", label: "Catalog", link: "/collections/all" },
+        { id: "3", label: "Contact", link: "/pages/contact" },
+      ],
+      plan: "free",
+    };
+  }
+
+  // Step 2: Check Shopify billing — use DB plan as fallback if billing.check() fails
+  let plan = navbar.plan || "free"; // Start with DB value
+  let billingSucceeded = false;
+
   try {
     const billingCheck = await billing.check({
       plans: ["Starter Plan", "Pro Plan"],
-      isTest: process.env.NODE_ENV !== "production",
+      isTest: isTestBilling,
     });
     plan = getPlanFromBilling(billingCheck);
+    billingSucceeded = true;
+    console.log(`[index loader] shop=${shop} billing_plan=${plan} hasActivePayment=${billingCheck.hasActivePayment}`);
   } catch (e) {
     if (e instanceof Response) throw e;
-    console.error("[index loader] billing check:", e?.message);
+    // billing.check() failed — fall back to DB plan to avoid wrongly showing "free"
+    console.error(`[index loader] billing check failed, using DB plan="${plan}":`, e?.message);
   }
 
-  let navbar = await prisma.navbar.findUnique({ where: { shop } });
-  if (!navbar) {
-    navbar = { designId: "1", menuItems: [{ id:"1", label:"Home", link:"/" }, { id:"2", label:"Catalog", link:"/collections/all" }, { id:"3", label:"Contact", link:"/pages/contact" }], plan: "free" };
+  // Step 3: Sync billing result to DB (only when billing succeeded and value changed)
+  if (billingSucceeded && navbar.id && navbar.plan !== plan) {
+    try {
+      await prisma.navbar.update({ where: { shop }, data: { plan } });
+      console.log(`[index loader] DB synced shop=${shop} plan=${plan}`);
+    } catch (dbErr) {
+      console.error("[index loader] DB sync failed:", dbErr?.message);
+    }
   }
 
-  // Sync plan to DB
-  if (navbar.id && navbar.plan !== plan) {
-    await prisma.navbar.update({ where: { shop }, data: { plan } });
-  }
+  const menuItems = typeof navbar.menuItems === "string"
+    ? JSON.parse(navbar.menuItems)
+    : (navbar.menuItems || []);
 
-  const menuItems = typeof navbar.menuItems === "string" ? JSON.parse(navbar.menuItems) : (navbar.menuItems || []);
   return Response.json({ navbar: { ...navbar, menuItems }, plan });
 };
+
 
 // ─── Action ───────────────────────────────────────────────────────────────────
 export const action = async ({ request }) => {
@@ -52,7 +77,7 @@ export const action = async ({ request }) => {
     try {
       const billingCheck = await billing.check({
         plans: ["Starter Plan", "Pro Plan"],
-        isTest: process.env.NODE_ENV !== "production",
+        isTest: isTestBilling,
       });
       plan = getPlanFromBilling(billingCheck);
     } catch (e) {
@@ -153,9 +178,14 @@ export default function Dashboard() {
   }, [plan, menuItems, submit]);
 
   useEffect(() => {
+    if (!actionData) return;
+    // Note: billing redirect is now handled server-side by re-throwing the Response.
+    // This block only handles explicit { redirectUrl } JSON responses (legacy fallback).
     if (actionData?.redirectUrl && typeof window !== "undefined") {
-      if (window.shopify) {
-        window.open(actionData.redirectUrl, "_top");
+      if (window.shopify?.redirectToExternalUrl) {
+        window.shopify.redirectToExternalUrl({ url: actionData.redirectUrl });
+      } else if (window.shopify?.openExternalUrl) {
+        window.shopify.openExternalUrl(actionData.redirectUrl);
       } else {
         window.parent.location.href = actionData.redirectUrl;
       }
@@ -180,14 +210,23 @@ export default function Dashboard() {
 
   const confirmUpgrade = async () => {
     const { requiredPlan } = upgradeModal;
-    setUpgradeModal({ open:false, requiredPlan:null });
+    setUpgradeModal({ open: false, requiredPlan: null });
     setBillingLoading(true);
-    
+
     const fd = new FormData();
     fd.append("planType", requiredPlan);
-    
-    const token = await window.shopify.idToken();
-    submit(fd, { method: "post", action: `/app/billing?id_token=${token}` });
+
+    try {
+      // Get a fresh session token so authenticate.admin() succeeds server-side.
+      // The billing action will re-throw the Shopify billing redirect Response,
+      // which React Router will handle as a top-level navigation.
+      const token = await window.shopify.idToken();
+      submit(fd, { method: "post", action: `/app/billing?id_token=${token}` });
+    } catch (e) {
+      console.error("[confirmUpgrade] Failed to get idToken:", e);
+      // Fallback: submit without token
+      submit(fd, { method: "post", action: "/app/billing" });
+    }
   };
 
   const renderLivePreview = () => {

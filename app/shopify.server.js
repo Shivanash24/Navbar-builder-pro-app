@@ -8,6 +8,14 @@ import {
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import prisma from "./db.server";
 
+/**
+ * Explicit billing test flag.
+ * Set SHOPIFY_BILLING_TEST=false in your production environment variables
+ * (Vercel, Railway, etc.) to enable real charges.
+ * Defaults to true so local dev always uses test charges.
+ */
+export const isTestBilling = process.env.SHOPIFY_BILLING_TEST !== "false";
+
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
   apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
