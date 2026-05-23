@@ -55,72 +55,27 @@ async function checkBillingWithRetry(billing, maxAttempts = 5, baseDelayMs = 800
   return lastResult;
 }
 
-// ─── Loader ────────────────────────────────────────────────────────────────────
-// Runs when Shopify redirects the merchant back after approving/declining billing.
-// Shopify appends ?charge_id=xxx&shop=xxx to the returnUrl we supplied.
+// ─── Loader ───────────────────────────────────────────────────────────────
+// NOTE: The billing RETURN from Shopify is now handled by the standalone
+// /billing/callback route (billing.callback.jsx).
+//
+// This loader handles the rare case where the merchant or a redirect lands
+// directly on /app/billing from within the embedded app context.  In that
+// case authenticate.admin() works fine (iframe → session token present) and
+// we simply send them to the Pricing page.
 export async function loader({ request }) {
-  console.log(`[billing loader] Incoming request: ${request.url}`);
+  console.log(`[billing loader] Direct navigation to /app/billing — redirecting to /app/pricing`);
 
-  let session, billing;
   try {
-    ({ session, billing } = await authenticate.admin(request));
+    // Authenticate only to ensure the session is valid before redirecting.
+    // This is only reached from inside the embedded app (iframe context), so
+    // authenticate.admin() will succeed without triggering the login page.
+    await authenticate.admin(request);
   } catch (authErr) {
-    // Re-throw Responses (Shopify will redirect to OAuth) — do NOT catch these
     if (authErr instanceof Response) throw authErr;
-    console.error("[billing loader] authenticate.admin() threw:", authErr?.message);
-    // If auth fails for any other reason, send to /auth with the shop param so
-    // the merchant is NOT asked to type their store name again.
-    const url = new URL(request.url);
-    const shop = url.searchParams.get("shop") || "";
-    return redirect(`/auth${shop ? `?shop=${encodeURIComponent(shop)}` : ""}`);
+    console.error("[billing loader] authenticate.admin() error:", authErr?.message);
   }
 
-  const shop = session.shop;
-  const url = new URL(request.url);
-  const chargeId = url.searchParams.get("charge_id");
-  console.log(`[billing loader] shop=${shop} charge_id=${chargeId ?? "none"}`);
-
-  try {
-    // Bug #6 FIXED: retry with backoff instead of a single unreliable 500ms delay
-    const billingCheck = await checkBillingWithRetry(billing);
-    const plan = getPlanFromBilling(billingCheck);
-
-    console.log(
-      `[billing loader] shop=${shop} hasActivePayment=${billingCheck?.hasActivePayment} confirmed_plan=${plan}`
-    );
-
-    if (!billingCheck?.hasActivePayment) {
-      console.warn(
-        `[billing loader] WARNING: shop=${shop} has no active payment after ${5} retries. ` +
-          `Merchant may have declined. charge_id=${chargeId ?? "none"}`
-      );
-    }
-
-    // Persist the confirmed plan to DB
-    await prisma.navbar.upsert({
-      where: { shop },
-      update: { plan },
-      create: {
-        shop,
-        plan,
-        designId: "1",
-        menuItems: JSON.stringify([
-          { id: "1", label: "Home", link: "/" },
-          { id: "2", label: "Catalog", link: "/collections/all" },
-          { id: "3", label: "Contact", link: "/pages/contact" },
-        ]),
-      },
-    });
-
-    console.log(`[billing loader] DB updated: shop=${shop} plan=${plan}`);
-  } catch (error) {
-    // Re-throw Responses (auth redirects from Shopify library) — never swallow these
-    if (error instanceof Response) throw error;
-    console.error("[billing loader] Error syncing plan:", error?.message || error);
-    // Continue to redirect even on DB error — plan will self-heal on next load
-  }
-
-  // Redirect to Pricing page so the merchant sees their updated plan immediately
   return redirect("/app/pricing");
 }
 
@@ -163,10 +118,19 @@ export async function action({ request }) {
     );
   }
 
-  // Bug #2 FIXED: include ?shop= so the auth middleware can find the session
-  // when Shopify redirects the top-level window back to this URL after approval.
-  // Without ?shop=, the middleware starts a brand-new OAuth flow → login re-prompt.
-  const returnUrl = `${appUrl}/app/billing?shop=${encodeURIComponent(shop)}`;
+  // CRITICAL FIX: returnUrl now points to /billing/callback — a STANDALONE route
+  // outside the /app/* hierarchy.
+  //
+  // Previously: /app/billing?shop=xxx
+  //   → The parent layout (app.jsx) calls authenticate.admin() on this top-level
+  //     request.  No embedded session exists → library redirects to /auth/login
+  //     (the "Shop domain" form).  Merchant has to type their store name again.
+  //
+  // Now: /billing/callback?shop=xxx
+  //   → No parent layout, no authenticate.admin() call.
+  //   → Uses unauthenticated.admin(shop) (stored offline token) to check billing.
+  //   → Redirects merchant to Shopify Admin embedded URL — already authenticated.
+  const returnUrl = `${appUrl}/billing/callback?shop=${encodeURIComponent(shop)}`;
   console.log(
     `[billing action] shop=${shop} plan=${planName} isTest=${isTestBilling} returnUrl=${returnUrl}`
   );

@@ -75,10 +75,15 @@ export const action = async ({ request }) => {
       { status: 500 }
     );
   }
-  // Bug #3 FIXED: include ?shop= so the auth middleware can resolve the session
-  // when Shopify redirects the top-level window back here after billing approval.
-  // Without ?shop= the middleware starts a fresh OAuth → merchant sees login prompt.
-  const returnUrl = `${appUrl}/app/billing?shop=${encodeURIComponent(shop)}`;
+  // CRITICAL FIX: returnUrl now points to /billing/callback — a STANDALONE route
+  // outside the /app/* hierarchy.  See billing.callback.jsx for full explanation.
+  //
+  // Previously /app/billing?shop= triggered the /app layout's authenticate.admin()
+  // on a top-level (non-iframe) request → no embedded session → /auth/login shown.
+  //
+  // Now /billing/callback?shop= uses unauthenticated.admin(shop) (offline token)
+  // and redirects the merchant back to Shopify Admin's embedded URL — no login form.
+  const returnUrl = `${appUrl}/billing/callback?shop=${encodeURIComponent(shop)}`;
   console.log(`[pricing action] returnUrl=${returnUrl}`);
 
   try {
