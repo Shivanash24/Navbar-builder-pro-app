@@ -31,8 +31,8 @@ export const loader = async ({ request }) => {
     };
   }
 
-  // Step 2: Check Shopify billing — use DB plan as fallback if billing.check() fails
-  let plan = navbar.plan || "free"; // Start with DB value
+  // Step 2: Check Shopify billing — STRICT ENFORCEMENT, NO DB FALLBACK
+  let plan = "free"; // Default to free (locked) for strict security
   let billingSucceeded = false;
 
   try {
@@ -45,8 +45,8 @@ export const loader = async ({ request }) => {
     console.log(`[index loader] shop=${shop} billing_plan=${plan} hasActivePayment=${billingCheck.hasActivePayment}`);
   } catch (e) {
     if (e instanceof Response) throw e;
-    // billing.check() failed — fall back to DB plan to avoid wrongly showing "free"
-    console.error(`[index loader] billing check failed, using DB plan="${plan}":`, e?.message);
+    // Strict enforcement: if billing API fails, fail closed (free tier)
+    console.error(`[index loader] billing check failed, defaulting to "free" to prevent bypass:`, e?.message);
   }
 
   // Step 3: Sync billing result to DB (only when billing succeeded and value changed)
