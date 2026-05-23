@@ -10,9 +10,10 @@
  *   This is intentional — it enforces hard feature boundaries between tiers.
  *
  * Plan structure:
+ * Plan structure:
  *   FREE    ($0/mo) → Designs: 1
- *   STARTER ($49/mo)→ Designs: 2, 3, 4
- *   PRO     ($99/mo)→ Designs: 5, 6, 7
+ *   STARTER ($49/mo)→ Designs: 1, 2, 3
+ *   PRO     ($99/mo)→ Designs: 1, 4, 5, 6
  *
  * Adding a new plan or design:
  *   1. Add the design ID to the correct array in PLAN_DESIGNS below.
@@ -31,25 +32,20 @@
  *
  * @type {Record<string, string[]>}
  */
-export const PLAN_DESIGNS = {
-  free:    ["1"],
-  starter: ["2", "3", "4"],
-  pro:     ["5", "6", "7"],
+export const DESIGN_OWNERSHIP = {
+  "1": "free",
+  "2": "starter",
+  "3": "starter",
+  "4": "pro",
+  "5": "pro",
+  "6": "pro",
 };
 
-// ─── Reverse Map (designId → plan) ───────────────────────────────────────────
-/**
- * Derived from PLAN_DESIGNS — do not edit manually.
- * Used for O(1) lookups in getRequiredPlan() without iterating arrays.
- *
- * @type {Record<string, string>}
- */
-export const DESIGN_PLAN_MAP = Object.freeze(
-  Object.entries(PLAN_DESIGNS).reduce((acc, [plan, ids]) => {
-    ids.forEach((id) => { acc[id] = plan; });
-    return acc;
-  }, {})
-);
+export const PLAN_DESIGNS = {
+  free:    ["1"],
+  starter: ["1", "2", "3"],
+  pro:     ["1", "4", "5", "6"],
+};
 
 // ─── All valid design IDs ─────────────────────────────────────────────────────
 /**
@@ -58,7 +54,7 @@ export const DESIGN_PLAN_MAP = Object.freeze(
  *
  * @type {Set<string>}
  */
-export const ALL_DESIGN_IDS = new Set(Object.keys(DESIGN_PLAN_MAP));
+export const ALL_DESIGN_IDS = new Set(Object.keys(DESIGN_OWNERSHIP));
 
 // ─── Valid plan names ─────────────────────────────────────────────────────────
 /** @type {Set<string>} */
@@ -129,7 +125,7 @@ export function validateDesignAccess(designId, plan) {
  * @returns {"free" | "starter" | "pro"}
  */
 export function getRequiredPlan(designId) {
-  return DESIGN_PLAN_MAP[String(designId)] ?? "free";
+  return DESIGN_OWNERSHIP[String(designId)] ?? "free";
 }
 
 /**

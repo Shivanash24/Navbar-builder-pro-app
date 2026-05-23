@@ -149,19 +149,18 @@ export const action = async ({ request }) => {
 //
 // Plan mapping (strict isolation — no inheritance):
 //   FREE    ($0)  → Design 1
-//   STARTER ($49) → Designs 2, 3, 4
-//   PRO     ($99) → Designs 5, 6, 7
+//   STARTER ($49) → Designs 2, 3
+//   PRO     ($99) → Designs 4, 5, 6
 const DESIGNS = [
   // ── Free (1 design) ────────────────────────────────────────────────────────
   { id:"1", name:"Classic Left Logo",     requiredPlan:"free",    tag:"FREE",    popular:false },
-  // ── Starter (3 designs) ────────────────────────────────────────────────────
+  // ── Starter (2 designs) ────────────────────────────────────────────────────
   { id:"2", name:"Centered Split",        requiredPlan:"starter", tag:"STARTER", popular:true  },
   { id:"3", name:"Minimal Transparent",   requiredPlan:"starter", tag:"STARTER", popular:false },
-  { id:"4", name:"Mega Menu",             requiredPlan:"starter", tag:"STARTER", popular:false },
   // ── Pro (3 designs) ────────────────────────────────────────────────────────
+  { id:"4", name:"Mega Menu",             requiredPlan:"pro",     tag:"PRO",     popular:false },
   { id:"5", name:"Modern Dark",           requiredPlan:"pro",     tag:"PRO",     popular:false },
-  { id:"6", name:"Sidebar / Hamburger",   requiredPlan:"pro",     tag:"PRO",     popular:false },
-  { id:"7", name:"Ultra Sticky Header",   requiredPlan:"pro",     tag:"PRO",     popular:true  },
+  { id:"6", name:"Ultra Sticky Header",   requiredPlan:"pro",     tag:"PRO",     popular:true  },
 ];
 
 const BADGE_TONE = { free:"success", starter:"info", pro:"warning" };
@@ -180,8 +179,7 @@ function MiniPreview({ id }) {
     case "3": return <div style={{...base,background:"transparent",borderBottom:"none"}}><div style={{...logo,background:"#9ca3af"}}/><div style={links}><div style={{...link,background:"#9ca3af"}}/><div style={{...link,background:"#9ca3af"}}/><div style={{...link,background:"#9ca3af"}}/></div></div>;
     case "4": return <div style={{...base,flexDirection:"column",padding:0}}><div style={{display:"flex",justifyContent:"space-between",padding:10,borderBottom:"1px solid #e5e7eb",width:"100%"}}><div style={{...logo,width:16,height:16}}/><div style={{display:"flex",gap:5}}><div style={{...link,width:10}}/><div style={{...link,width:10}}/></div></div><div style={{display:"flex",justifyContent:"center",padding:8,background:"#f3f4f6",width:"100%"}}><div style={links}><div style={link}/><div style={link}/><div style={link}/></div></div></div>;
     case "5": return <div style={{...base,background:"#111827"}}><div style={{...logo,background:"#475569"}}/><div style={links}><div style={{...link,background:"#475569",width:25}}/><div style={{...link,background:"#475569",width:25}}/><div style={{...link,background:"#475569",width:25}}/></div></div>;
-    case "6": return <div style={base}><div style={{display:"flex",flexDirection:"column",gap:3}}><div style={{...link,width:16,height:2}}/><div style={{...link,width:16,height:2}}/><div style={{...link,width:16,height:2}}/></div><div style={{...logo,position:"absolute",left:"50%",transform:"translateX(-50%)"}}/></div>;
-    case "7": return (
+    case "6": return (
       <div style={{...base,flexDirection:"column",padding:0}}>
         <div style={{width:"100%",padding:"10px 20px",background:"linear-gradient(90deg,#4f46e5,#7c3aed)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div style={{...logo,width:22,height:22,background:"rgba(255,255,255,0.3)"}}/>
@@ -303,9 +301,8 @@ export default function Dashboard() {
         case "3": return commonWrap(<>{logo}<div style={{display:"flex",gap:25}}>{menuEls}</div></>, {background:"transparent"});
         case "4": return <div style={{flexDirection:"column",display:"flex",borderBottom:"1px solid #eaeaea"}}>{commonWrap(<>{logo}<div style={{display:"flex",gap:15}}><div>Search</div><div>Cart</div></div></>,{borderBottom:"1px solid #f0f0f0"})}<div style={{display:"flex",justifyContent:"center",padding:"10px 5%",background:"#f9f9f9"}}><div style={{display:"flex",gap:30}}>{menuEls}</div></div></div>;
         case "5": return commonWrap(<>{logo}<div style={{display:"flex",gap:25}}>{menuItems.map((it,i)=><div key={i} style={{fontWeight:500,color:"white",textTransform:"uppercase",letterSpacing:1,fontSize:14}}>{it.label}</div>)}</div></>, {background:"#121212",color:"white"});
-        case "6": return commonWrap(<><div style={{display:"flex",flexDirection:"column",gap:5,cursor:"pointer"}}>{[0,1,2].map(i=><div key={i} style={{width:25,height:3,background:"black"}}/>)}</div>{logo}<div style={{width:25}}/></>);
-        // PRO — Design 7: Ultra Sticky Header
-        case "7": return (
+        // PRO — Design 6: Ultra Sticky Header
+        case "6": return (
           <div style={{flexDirection:"column",display:"flex",boxShadow:"0 2px 8px rgba(0,0,0,0.1)"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"16px 5%",background:"linear-gradient(90deg,#4f46e5,#7c3aed)"}}>
               {<div style={{fontSize:22,fontWeight:"bold",color:"#fff"}}>Store Logo</div>}
@@ -384,12 +381,12 @@ export default function Dashboard() {
 
             {plan === "free" && (
               <Banner title="Unlock Premium Navbar Designs" tone="info">
-                <p>Choose the <strong>Starter Plan ($49/mo)</strong> for Designs 2, 3 &amp; 4, or the <strong>Pro Plan ($99/mo)</strong> for Designs 5, 6 &amp; 7.</p>
+                <p>Choose the <strong>Starter Plan ($49/mo)</strong> for Designs 2 &amp; 3, or the <strong>Pro Plan ($99/mo)</strong> for Designs 4, 5 &amp; 6.</p>
               </Banner>
             )}
             {plan === "starter" && (
               <Banner title="Upgrade to Pro for Exclusive Premium Designs" tone="warning">
-                <p>Unlock 3 premium designs (5, 6 &amp; 7) including the Ultra Sticky Header with the <strong>Pro Plan ($99/mo)</strong>.</p>
+                <p>Unlock 3 premium designs (4, 5 &amp; 6) including the Ultra Sticky Header with the <strong>Pro Plan ($99/mo)</strong>.</p>
               </Banner>
             )}
 
@@ -489,8 +486,8 @@ export default function Dashboard() {
                 <Box paddingBlockStart="200">
                   <Text variant="bodyLg">
                     {upgradeModal.requiredPlan === "starter"
-                      ? "Unlock Designs 2, 3 & 4 — Centered Split, Minimal Transparent, and Mega Menu."
-                      : "Unlock Designs 5, 6 & 7 — Modern Dark, Sidebar / Hamburger, and Ultra Sticky Header."}
+                      ? "Unlock Designs 2 & 3 — Centered Split and Minimal Transparent."
+                      : "Unlock Designs 4, 5 & 6 — Mega Menu, Modern Dark, and Ultra Sticky Header."}
                   </Text>
                 </Box>
               </div>
