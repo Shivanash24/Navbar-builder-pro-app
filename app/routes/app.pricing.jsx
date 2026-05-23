@@ -75,7 +75,10 @@ export const action = async ({ request }) => {
       { status: 500 }
     );
   }
-  const returnUrl = `${appUrl}/app/billing`;
+  // Bug #3 FIXED: include ?shop= so the auth middleware can resolve the session
+  // when Shopify redirects the top-level window back here after billing approval.
+  // Without ?shop= the middleware starts a fresh OAuth → merchant sees login prompt.
+  const returnUrl = `${appUrl}/app/billing?shop=${encodeURIComponent(shop)}`;
   console.log(`[pricing action] returnUrl=${returnUrl}`);
 
   try {
@@ -179,18 +182,20 @@ export default function PricingPage() {
   const planColor = { free: "subdued", starter: "info", pro: "success" }[plan] ?? "subdued";
 
   const starterFeatures = [
-    "Access to 2 Premium Navbar Designs (Design 2 & 3)",
-    "Fast Loading UI",
-    "Mobile Responsive",
-    "Easy Customization",
-    "24 Hours Service Availability",
+    "3 Exclusive Starter Designs (Designs 2, 3 & 4)",
+    "Centered Split — balanced logo-centered layout",
+    "Minimal Transparent — clean, overlay-friendly bar",
+    "Mega Menu — dual-row with category navigation",
+    "Mobile Responsive & Fast Loading",
+    "24/7 Support",
   ];
   const proFeatures = [
-    "Access to 3 Advanced Navbar Designs (Design 4, 5 & 6)",
-    "Advanced Animations",
-    "Premium Layout Control",
-    "Priority Features",
-    "24 Hours Service Availability",
+    "3 Exclusive Pro Designs (Designs 5, 6 & 7)",
+    "Modern Dark — sleek dark-mode premium navbar",
+    "Sidebar / Hamburger — off-canvas slide-out menu",
+    "Ultra Sticky Header — gradient bar with CTA button",
+    "Advanced Animations & Premium Layout Control",
+    "Priority Support",
   ];
 
   return (
@@ -298,8 +303,8 @@ export default function PricingPage() {
                     <Text variant="headingMd">Your Current Plan</Text>
                     <Text variant="bodyMd" tone="subdued">
                       {plan === "free"    && "You're on the Free plan. Upgrade to unlock premium designs."}
-                      {plan === "starter" && "You're on the Starter plan. Enjoy Designs 2 & 3!"}
-                      {plan === "pro"     && "You're on the Pro plan. All premium designs are unlocked!"}
+                      {plan === "starter" && "You're on the Starter plan. Designs 2, 3 & 4 are unlocked!"}
+                      {plan === "pro"     && "You're on the Pro plan. Designs 5, 6 & 7 are fully unlocked!"}
                     </Text>
                   </BlockStack>
                   <Badge tone={planColor} size="large">{planLabel} Plan</Badge>
@@ -308,8 +313,8 @@ export default function PricingPage() {
             </Card>
 
             {plan === "pro" && (
-              <Banner tone="success" title="You have the Pro Plan — enjoy all premium features!">
-                <p>All 3 advanced designs (4, 5, 6) are fully unlocked for your store.</p>
+              <Banner tone="success" title="You have the Pro Plan — exclusive premium designs unlocked!">
+                <p>Designs 5 (Modern Dark), 6 (Sidebar / Hamburger) &amp; 7 (Ultra Sticky Header) are active for your store.</p>
               </Banner>
             )}
 
