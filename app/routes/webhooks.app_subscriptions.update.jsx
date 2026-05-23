@@ -1,5 +1,4 @@
-import { authenticate } from "../shopify.server";
-import prisma from "../db.server";
+// Static imports removed to prevent Vercel "Server-only module referenced by client" error
 import { getPlanFromBilling } from "../utils/planAccess";
 
 /**
@@ -15,6 +14,8 @@ import { getPlanFromBilling } from "../utils/planAccess";
  * even if the merchant manages subscriptions from outside the app.
  */
 export const action = async ({ request }) => {
+  const { authenticate } = await import("../shopify.server.js");
+  const { default: prisma } = await import("../db.server.js");
   let shop, payload, topic;
 
   try {

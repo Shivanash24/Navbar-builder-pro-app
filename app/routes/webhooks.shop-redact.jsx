@@ -7,10 +7,11 @@
  *
  * Internally delegates to the same GDPR handler logic.
  */
-import { verifyShopifyWebhook } from "../utils/webhookHmac.server";
+// Static imports removed to prevent Vercel "Server-only module referenced by client" error
 
 export const action = async ({ request }) => {
-  // ── HMAC Verification ────────────────────────────────────────────────────
+  const { verifyShopifyWebhook } = await import("../utils/webhookHmac.server.js");
+  // ── STEP 1: Explicit raw-body HMAC verification ────────────────────────────────────────────────────
   const { rawBody, errorResponse } = await verifyShopifyWebhook(request);
   if (errorResponse) return errorResponse;
 

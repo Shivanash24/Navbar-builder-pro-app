@@ -29,8 +29,7 @@
  */
 
 import { redirect } from "react-router";
-import { unauthenticated } from "../shopify.server";
-import prisma from "../db.server";
+// Static imports of .server files removed to prevent Vercel client build errors.
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 const MAX_ATTEMPTS  = 6;   // total GraphQL poll attempts
@@ -108,6 +107,9 @@ function planFromSubscriptions(subscriptions) {
 
 // ─── Loader ───────────────────────────────────────────────────────────────────
 export async function loader({ request }) {
+  const { unauthenticated } = await import("../shopify.server.js");
+  const { default: prisma } = await import("../db.server.js");
+
   const url    = new URL(request.url);
   const shop   = url.searchParams.get("shop");
   const chargeId = url.searchParams.get("charge_id");

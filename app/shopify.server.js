@@ -14,7 +14,7 @@ import prisma from "./db.server";
  * (Vercel, Railway, etc.) to enable real charges.
  * Defaults to true so local dev always uses test charges.
  */
-export const isTestBilling = process.env.SHOPIFY_BILLING_TEST !== "false";
+
 
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,

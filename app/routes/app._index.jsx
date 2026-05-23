@@ -2,9 +2,6 @@ import { useEffect, useState, useCallback } from "react";
 import { useActionData, useLoaderData, useNavigation, useSubmit, useRevalidator } from "react-router";
 import { Page, Layout, Card, Button, Text, BlockStack, InlineStack, Box, Badge, Grid, TextField, Icon, Modal, Banner, Toast, Frame, Spinner } from "@shopify/polaris";
 import { DeleteIcon, LockIcon, ViewIcon, StarFilledIcon } from "@shopify/polaris-icons";
-import { authenticate } from "../shopify.server";
-import { isTestBilling } from "../shopify.server";
-import prisma from "../db.server";
 import {
   getPlanFromBilling,
   canAccessDesign,
@@ -15,6 +12,8 @@ import {
 
 // ─── Loader ───────────────────────────────────────────────────────────────────
 export const loader = async ({ request }) => {
+  const { authenticate } = await import("../shopify.server.js");
+  const { default: prisma } = await import("../db.server.js");
   const { session, billing } = await authenticate.admin(request);
   const shop = session.shop;
 
@@ -39,7 +38,7 @@ export const loader = async ({ request }) => {
   try {
     const billingCheck = await billing.check({
       plans: ["Starter Plan", "Pro Plan"],
-      isTest: isTestBilling,
+      isTest: process.env.SHOPIFY_BILLING_TEST !== "false",
     });
     plan = getPlanFromBilling(billingCheck);
     billingSucceeded = true;
@@ -70,6 +69,8 @@ export const loader = async ({ request }) => {
 
 // ─── Action ───────────────────────────────────────────────────────────────────
 export const action = async ({ request }) => {
+  const { authenticate } = await import("../shopify.server.js");
+  const { default: prisma } = await import("../db.server.js");
   const { session, admin, billing } = await authenticate.admin(request);
   const shop = session.shop;
   const formData = await request.formData();
@@ -85,7 +86,7 @@ export const action = async ({ request }) => {
     try {
       const billingCheck = await billing.check({
         plans: ["Starter Plan", "Pro Plan"],
-        isTest: isTestBilling,
+        isTest: process.env.SHOPIFY_BILLING_TEST !== "false",
       });
       plan = getPlanFromBilling(billingCheck);
       console.log(`[index action] shop=${shop} resolved_plan=${plan} designId=${designId}`);

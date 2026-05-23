@@ -4,13 +4,12 @@ import {
   Page, Card, Text, BlockStack, InlineStack, Box,
   Badge, Frame, Toast, Banner,
 } from "@shopify/polaris";
-import { authenticate } from "../shopify.server";
-import { isTestBilling } from "../shopify.server";
-import prisma from "../db.server";
 import { getPlanFromBilling } from "../utils/planAccess";
 
 // ─── Loader ────────────────────────────────────────────────────────────────────
 export const loader = async ({ request }) => {
+  const { authenticate } = await import("../shopify.server.js");
+  const { default: prisma } = await import("../db.server.js");
   const { session, billing } = await authenticate.admin(request);
   const shop = session.shop;
 
@@ -21,7 +20,7 @@ export const loader = async ({ request }) => {
   try {
     const billingCheck = await billing.check({
       plans: ["Starter Plan", "Pro Plan"],
-      isTest: isTestBilling,
+      isTest: process.env.SHOPIFY_BILLING_TEST !== "false",
     });
     plan = getPlanFromBilling(billingCheck);
     console.log(`[pricing loader] shop=${shop} plan=${plan} hasActivePayment=${billingCheck.hasActivePayment}`);
@@ -49,6 +48,7 @@ export const loader = async ({ request }) => {
 
 // ─── Action ────────────────────────────────────────────────────────────────────
 export const action = async ({ request }) => {
+  const { authenticate } = await import("../shopify.server.js");
   console.log(`[pricing action] ${request.method} ${request.url}`);
 
   const { session, billing } = await authenticate.admin(request);
@@ -64,7 +64,7 @@ export const action = async ({ request }) => {
   }
 
   const planName = planType === "starter" ? "Starter Plan" : "Pro Plan";
-  console.log(`[pricing action] shop=${shop} requesting_plan=${planName} isTest=${isTestBilling}`);
+  console.log(`[pricing action] shop=${shop} requesting_plan=${planName}`);
 
   // Build returnUrl from SHOPIFY_APP_URL — NEVER use request.url host
   const appUrl = process.env.SHOPIFY_APP_URL;
@@ -89,7 +89,7 @@ export const action = async ({ request }) => {
   try {
     await billing.request({
       plan: planName,
-      isTest: isTestBilling,
+      isTest: process.env.SHOPIFY_BILLING_TEST !== "false",
       returnUrl,
     });
 

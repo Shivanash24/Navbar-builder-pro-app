@@ -1,5 +1,3 @@
-import { authenticate } from "../shopify.server";
-import prisma from "../db.server";
 
 /**
  * Auth catch-all route — handles Shopify OAuth callback redirects.
@@ -12,6 +10,8 @@ import prisma from "../db.server";
  * record on first install without requiring a non-existent model.
  */
 export const loader = async ({ request }) => {
+  const { authenticate } = await import("../shopify.server.js");
+  const { default: prisma } = await import("../db.server.js");
   let session;
 
   try {

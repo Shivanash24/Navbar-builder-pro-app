@@ -3,57 +3,9 @@
 import { redirect } from "react-router";
 import { useEffect } from "react";
 import { useActionData } from "react-router";
-import { authenticate } from "../shopify.server";
-import { isTestBilling } from "../shopify.server";
-import prisma from "../db.server";
 import { getPlanFromBilling } from "../utils/planAccess";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/**
- * Retry billing.check() with exponential backoff.
- *
- * Shopify can take 2-3 seconds to transition a subscription from PENDING → ACTIVE
- * after the merchant clicks Approve. A single attempt with a 500ms delay is not
- * reliable. We retry up to `maxAttempts` times before giving up.
- *
- * Bug #6 FIXED: replaced the single 500ms setTimeout with this retry helper.
- */
-async function checkBillingWithRetry(billing, maxAttempts = 5, baseDelayMs = 800) {
-  let lastResult = null;
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    // Wait before each attempt (doubles each time: 800ms, 1600ms, 2400ms …)
-    const delay = baseDelayMs * attempt;
-    await new Promise((resolve) => setTimeout(resolve, delay));
-
-    try {
-      const billingCheck = await billing.check({
-        plans: ["Starter Plan", "Pro Plan"],
-        isTest: isTestBilling,
-      });
-      lastResult = billingCheck;
-
-      if (billingCheck.hasActivePayment) {
-        console.log(
-          `[billing loader] Billing confirmed on attempt ${attempt}/${maxAttempts}`
-        );
-        return billingCheck;
-      }
-
-      console.log(
-        `[billing loader] Attempt ${attempt}/${maxAttempts}: no active payment yet. Retrying…`
-      );
-    } catch (err) {
-      // Re-throw Responses (auth redirects) immediately — do not retry those
-      if (err instanceof Response) throw err;
-      console.error(`[billing loader] billing.check() error on attempt ${attempt}:`, err?.message);
-      lastResult = null;
-    }
-  }
-
-  // Return last known result even if hasActivePayment is false (merchant may have declined)
-  return lastResult;
-}
 
 // ─── Loader ───────────────────────────────────────────────────────────────
 // NOTE: The billing RETURN from Shopify is now handled by the standalone
@@ -64,6 +16,7 @@ async function checkBillingWithRetry(billing, maxAttempts = 5, baseDelayMs = 800
 // case authenticate.admin() works fine (iframe → session token present) and
 // we simply send them to the Pricing page.
 export async function loader({ request }) {
+  const { authenticate } = await import("../shopify.server.js");
   console.log(`[billing loader] Direct navigation to /app/billing — redirecting to /app/pricing`);
 
   try {
@@ -82,6 +35,7 @@ export async function loader({ request }) {
 // ─── Action ────────────────────────────────────────────────────────────────────
 // Called when the Dashboard's upgrade modal submits here.
 export async function action({ request }) {
+  const { authenticate } = await import("../shopify.server.js");
   console.log(`[billing action] ${request.method} ${request.url}`);
 
   let session, billing;
@@ -132,13 +86,13 @@ export async function action({ request }) {
   //   → Redirects merchant to Shopify Admin embedded URL — already authenticated.
   const returnUrl = `${appUrl}/billing/callback?shop=${encodeURIComponent(shop)}`;
   console.log(
-    `[billing action] shop=${shop} plan=${planName} isTest=${isTestBilling} returnUrl=${returnUrl}`
+    `[billing action] shop=${shop} plan=${planName} returnUrl=${returnUrl}`
   );
 
   try {
     await billing.request({
       plan: planName,
-      isTest: isTestBilling,
+      isTest: process.env.SHOPIFY_BILLING_TEST !== "false",
       returnUrl,
     });
 

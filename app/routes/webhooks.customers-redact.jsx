@@ -4,9 +4,10 @@
  * Handles stale webhook registrations with hyphenated URL format.
  * Delegates to the same GDPR handler logic as /webhooks/gdpr.
  */
-import { verifyShopifyWebhook } from "../utils/webhookHmac.server";
+// Static imports removed to prevent Vercel "Server-only module referenced by client" error
 
 export const action = async ({ request }) => {
+  const { verifyShopifyWebhook } = await import("../utils/webhookHmac.server.js");
   const { rawBody, errorResponse } = await verifyShopifyWebhook(request);
   if (errorResponse) return errorResponse;
 

@@ -1,5 +1,5 @@
 import { redirect, Form, useLoaderData } from "react-router";
-import { login } from "../../shopify.server";
+
 import styles from "./styles.module.css";
 
 export const loader = async ({ request }) => {
@@ -9,6 +9,7 @@ export const loader = async ({ request }) => {
     throw redirect(`/app?${url.searchParams.toString()}`);
   }
 
+  const { login } = await import("../../shopify.server.js");
   return { showForm: Boolean(login) };
 };
 

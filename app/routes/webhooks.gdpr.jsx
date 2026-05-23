@@ -1,4 +1,4 @@
-import { verifyShopifyWebhook } from "../utils/webhookHmac.server";
+// Static imports removed to prevent Vercel "Server-only module referenced by client" error
 
 /**
  * Unified GDPR Compliance Webhook Handler
@@ -19,6 +19,7 @@ import { verifyShopifyWebhook } from "../utils/webhookHmac.server";
  *  ✅ Completes action (data deletion) within 30 days per Shopify policy
  */
 export const action = async ({ request }) => {
+  const { verifyShopifyWebhook } = await import("../utils/webhookHmac.server.js");
   // ── STEP 1: Explicit raw-body HMAC-SHA256 verification ───────────────────
   // Must verify BEFORE parsing JSON. Reads the raw body, computes
   // HMAC-SHA256 with SHOPIFY_API_SECRET, compares via crypto.timingSafeEqual.

@@ -1,7 +1,8 @@
-import { authenticate } from "../shopify.server";
-import db from "../db.server";
+// Static imports removed to prevent Vercel "Server-only module referenced by client" error
 
 export const action = async ({ request }) => {
+  const { authenticate } = await import("../shopify.server.js");
+  const { default: db } = await import("../db.server.js");
   const { payload, session, topic, shop } = await authenticate.webhook(request);
 
   console.log(`Received ${topic} webhook for ${shop}`);

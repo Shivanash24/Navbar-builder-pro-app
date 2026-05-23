@@ -1,14 +1,16 @@
-import { Outlet, useLoaderData, useRouteError, Link, useEffect } from "react-router";
+import { Outlet, useLoaderData, useRouteError, Link } from "react-router";
+import { useEffect } from "react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { AppProvider as PolarisAppProvider } from "@shopify/polaris";
 import polarisTranslations from "@shopify/polaris/locales/en.json";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
-import { authenticate } from "../shopify.server";
+
 
 export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 
 export const loader = async ({ request }) => {
+  const { authenticate } = await import("../shopify.server.js");
   await authenticate.admin(request);
 
   // eslint-disable-next-line no-undef
