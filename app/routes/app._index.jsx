@@ -139,6 +139,41 @@ export const action = async ({ request }) => {
     console.log(`[index action] SUCCESS — shop=${shop} plan=${plan} applied designId=${designId}`);
     return Response.json({ success: true, message: "Design Applied Successfully!" });
   }
+
+  if (actionType === "upgrade") {
+    const planType = formData.get("planType");
+    if (!planType || !["starter", "pro"].includes(planType)) {
+      return Response.json({ success: false, error: "Invalid plan type." }, { status: 400 });
+    }
+    
+    const planName = planType === "starter" ? "Starter Plan" : "Pro Plan";
+    const appUrl = process.env.SHOPIFY_APP_URL;
+    if (!appUrl) return Response.json({ success: false, error: "Missing SHOPIFY_APP_URL" }, { status: 500 });
+
+    const returnUrl = `${appUrl}/billing/callback?shop=${encodeURIComponent(shop)}`;
+    
+    try {
+      await billing.request({
+        plan: planName,
+        isTest: process.env.SHOPIFY_BILLING_TEST !== "false",
+        returnUrl,
+      });
+      return Response.json({ success: true });
+    } catch (error) {
+      if (error instanceof Response) {
+        const location = error.headers.get("Location");
+        if (location) return Response.json({ redirectUrl: location });
+        
+        const reAuthUrl = error.headers.get("X-Shopify-API-Request-Failure-Reauthorize-Url");
+        if (reAuthUrl) return Response.json({ redirectUrl: reAuthUrl });
+        
+        throw error;
+      }
+      console.error("[index action] Upgrade error:", error?.message);
+      return Response.json({ success: false, error: "Billing request failed." }, { status: 500 });
+    }
+  }
+
   return Response.json({ success: false });
 };
 
@@ -237,9 +272,8 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!actionData) return;
-    // Note: billing redirect is now handled server-side by re-throwing the Response.
-    // This block only handles explicit { redirectUrl } JSON responses (legacy fallback).
     if (actionData?.redirectUrl && typeof window !== "undefined") {
+      console.log("[dashboard] Redirecting to Shopify billing:", actionData.redirectUrl);
       if (window.shopify?.redirectToExternalUrl) {
         window.shopify.redirectToExternalUrl({ url: actionData.redirectUrl });
       } else if (window.shopify?.openExternalUrl) {
@@ -249,7 +283,7 @@ export default function Dashboard() {
       }
       return;
     }
-    if (actionData?.success) { setToastMessage(actionData.message || "Done!"); setToastActive(true); }
+    if (actionData?.success && actionData.message) { setToastMessage(actionData.message); setToastActive(true); }
     else if (actionData?.error) { setToastMessage(actionData.error); setToastActive(true); }
   }, [actionData]);
 
@@ -273,17 +307,14 @@ export default function Dashboard() {
 
     const fd = new FormData();
     fd.append("planType", requiredPlan);
+    fd.append("actionType", "upgrade"); // Send upgrade action to THIS route
 
     try {
-      // Get a fresh session token so authenticate.admin() succeeds server-side.
-      // The billing action will re-throw the Shopify billing redirect Response,
-      // which React Router will handle as a top-level navigation.
       const token = await window.shopify.idToken();
-      submit(fd, { method: "post", action: `/app/billing?id_token=${token}` });
+      submit(fd, { method: "post", action: `/app?id_token=${token}` });
     } catch (e) {
       console.error("[confirmUpgrade] Failed to get idToken:", e);
-      // Fallback: submit without token
-      submit(fd, { method: "post", action: "/app/billing" });
+      submit(fd, { method: "post", action: "/app" });
     }
   };
 
