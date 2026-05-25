@@ -86,44 +86,14 @@ export const action = async ({ request }) => {
   const returnUrl = `${appUrl}/billing/callback?shop=${encodeURIComponent(shop)}`;
   console.log(`[pricing action] returnUrl=${returnUrl}`);
 
-  try {
-    await billing.request({
-      plan: planName,
-      isTest: process.env.SHOPIFY_BILLING_TEST !== "false",
-      returnUrl,
-    });
+  await billing.request({
+    plan: planName,
+    isTest: process.env.SHOPIFY_BILLING_TEST !== "false",
+    returnUrl,
+  });
 
-    return Response.json({ success: true });
-  } catch (error) {
-    if (error instanceof Response) {
-      // Extract the Shopify billing URL — NEVER re-throw this Response.
-      // Re-throwing causes React Router to follow the 302 inside the iframe,
-      // which breaks App Bridge top-level navigation to the billing page.
-      const location = error.headers.get("Location");
-      console.log(`[pricing action] Billing redirect URL: ${location ?? "none"} (status=${error.status})`);
-
-      if (location) {
-        return Response.json({ redirectUrl: location });
-      }
-
-      // Re-auth redirect from Shopify
-      const reAuthUrl = error.headers.get("X-Shopify-API-Request-Failure-Reauthorize-Url");
-      if (reAuthUrl) {
-        return Response.json({ redirectUrl: reAuthUrl });
-      }
-
-      throw error; // Truly unrecognised Response — propagate
-    }
-
-    console.error("[pricing action] Unexpected error:", error?.message || error);
-    return Response.json(
-      {
-        success: false,
-        error: error?.message || "Billing request failed. Please try again.",
-      },
-      { status: 500 }
-    );
-  }
+  // If billing.request doesn't throw a redirect, the plan is already active
+  return Response.json({ success: true, message: "Plan already active." });
 };
 
 // ─── Component ─────────────────────────────────────────────────────────────────
@@ -140,23 +110,6 @@ export default function PricingPage() {
   useEffect(() => {
     if (!actionData) return;
 
-    // The pricing action now returns { redirectUrl } (the Shopify billing page URL).
-    // We must use App Bridge's redirectToExternalUrl to navigate the TOP-LEVEL window.
-    // Using window.open or iframe navigation breaks the embedded app context.
-    if (actionData.redirectUrl) {
-      console.log("[pricing page] Redirecting to Shopify billing:", actionData.redirectUrl);
-      if (typeof window !== "undefined") {
-        if (window.shopify?.redirectToExternalUrl) {
-          window.shopify.redirectToExternalUrl({ url: actionData.redirectUrl });
-        } else if (window.shopify?.openExternalUrl) {
-          window.shopify.openExternalUrl(actionData.redirectUrl);
-        } else {
-          window.parent.location.href = actionData.redirectUrl;
-        }
-      }
-      return;
-    }
-
     if (actionData.message) {
       setToastMsg(actionData.message);
       setToastActive(true);
@@ -167,20 +120,12 @@ export default function PricingPage() {
     }
   }, [actionData]);
 
-  const upgrade = async (planType) => {
+  const upgrade = (planType) => {
     const fd = new FormData();
     fd.append("planType", planType);
 
-    // Inject the Shopify session token so authenticate.admin() works
-    // even when App Bridge doesn't auto-inject it into fetch requests.
-    try {
-      const token = await window.shopify.idToken();
-      submit(fd, { method: "post", action: `/app/pricing?id_token=${token}` });
-    } catch (e) {
-      console.error("[pricing] Failed to get idToken:", e);
-      // Fallback: submit without token (may work if session cookie is valid)
-      submit(fd, { method: "post" });
-    }
+    // With Shopify App Bridge v4, the authorization header is automatically appended to fetches
+    submit(fd, { method: "post" });
   };
 
   const planLabel = { free: "Free", starter: "Starter", pro: "Pro" }[plan] ?? "Free";

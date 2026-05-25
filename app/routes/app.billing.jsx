@@ -89,52 +89,14 @@ export async function action({ request }) {
     `[billing action] shop=${shop} plan=${planName} returnUrl=${returnUrl}`
   );
 
-  try {
-    await billing.request({
-      plan: planName,
-      isTest: process.env.SHOPIFY_BILLING_TEST !== "false",
-      returnUrl,
-    });
+  await billing.request({
+    plan: planName,
+    isTest: process.env.SHOPIFY_BILLING_TEST !== "false",
+    returnUrl,
+  });
 
-    // Normally billing.request() throws a redirect Response — if it somehow returns, treat as success
-    return Response.json({ success: true });
-  } catch (error) {
-    if (error instanceof Response) {
-      // billing.request() throws a Response whose Location header IS the Shopify billing URL.
-      // We MUST extract it and return as JSON — do NOT re-throw.
-      // Re-throwing causes React Router to follow the redirect inside the embedded iframe,
-      // which breaks App Bridge and prevents the billing approval page from loading properly.
-      const location = error.headers.get("Location");
-      console.log(
-        `[billing action] Shopify billing redirect URL: ${location ?? "none"} (status=${error.status})`
-      );
-
-      if (location) {
-        return Response.json({ redirectUrl: location });
-      }
-
-      // Re-auth redirect (missing Location means it is an auth error, not billing)
-      const reAuthUrl = error.headers.get(
-        "X-Shopify-API-Request-Failure-Reauthorize-Url"
-      );
-      if (reAuthUrl) {
-        console.warn(`[billing action] Re-auth required for shop=${shop}: ${reAuthUrl}`);
-        return Response.json({ redirectUrl: reAuthUrl });
-      }
-
-      // Truly unrecognised Response — propagate so the framework handles it
-      throw error;
-    }
-
-    console.error("[billing action] Unexpected error:", error?.message || error);
-    return Response.json(
-      {
-        success: false,
-        error: error?.message || "Billing request failed. Please try again.",
-      },
-      { status: 500 }
-    );
-  }
+  // Normally billing.request() throws a redirect Response — if it somehow returns, treat as success
+  return Response.json({ success: true, message: "Plan already active." });
 }
 
 // ─── Component ─────────────────────────────────────────────────────────────────
@@ -145,21 +107,8 @@ export default function BillingPage() {
   const actionData = useActionData();
 
   useEffect(() => {
-    if (!actionData?.redirectUrl) return;
-
-    console.log("[billing page] Redirecting to Shopify billing:", actionData.redirectUrl);
-
-    // Use App Bridge's redirectToExternalUrl to navigate the TOP-LEVEL window
-    // (not just the embedded iframe) to the Shopify billing confirmation page.
-    if (typeof window !== "undefined") {
-      if (window.shopify?.redirectToExternalUrl) {
-        window.shopify.redirectToExternalUrl({ url: actionData.redirectUrl });
-      } else if (window.shopify?.openExternalUrl) {
-        window.shopify.openExternalUrl(actionData.redirectUrl);
-      } else {
-        // Fallback: navigate parent frame for non-embedded contexts
-        window.parent.location.href = actionData.redirectUrl;
-      }
+    if (actionData?.message) {
+      console.log("[billing page] Success:", actionData.message);
     }
   }, [actionData]);
 
