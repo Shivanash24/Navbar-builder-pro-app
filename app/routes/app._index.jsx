@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { useActionData, useLoaderData, useNavigation, useSubmit, useRevalidator } from "react-router";
+import { useActionData, useLoaderData, useNavigation, useSubmit, useRevalidator, useNavigate } from "react-router";
 import { Page, Layout, Card, Button, Text, BlockStack, InlineStack, Box, Badge, Grid, TextField, Icon, Modal, Banner, Toast, Frame, Spinner } from "@shopify/polaris";
 import { DeleteIcon, LockIcon, ViewIcon, StarFilledIcon } from "@shopify/polaris-icons";
 import {
@@ -226,6 +226,7 @@ export default function Dashboard() {
   const submit = useSubmit();
   const navigation = useNavigation();
   const revalidator = useRevalidator();
+  const navigate = useNavigate();
 
   const [selectedDesign, setSelectedDesign] = useState(navbar.designId || "1");
   const [menuItems, setMenuItems] = useState(navbar.menuItems || []);
@@ -374,7 +375,7 @@ export default function Dashboard() {
                     <Badge tone={PLAN_BADGE_TONE[plan]} size="large">{PLAN_LABEL[plan]}</Badge>
                   </InlineStack>
                   {plan !== "pro" && (
-                    <Button url="/app/pricing" variant="primary">
+                    <Button onClick={() => navigate("/app/pricing")} variant="primary">
                       {planUpgradeMap[plan]} →
                     </Button>
                   )}
@@ -478,7 +479,7 @@ export default function Dashboard() {
         <Modal open={upgradeModal.open} onClose={()=>setUpgradeModal({open:false,requiredPlan:null})}
           title={`Upgrade to ${PLAN_LABEL[upgradeModal.requiredPlan] || ""} Plan`}
           primaryAction={{ content: billingLoading ? "Processing..." : `Upgrade Now — $${upgradeModal.requiredPlan==="starter"?"49":"99"}/mo`, onAction:confirmUpgrade, loading:billingLoading }}
-          secondaryActions={[{ content:"View All Plans", url:"/app/pricing" },{ content:"Cancel", onAction:()=>setUpgradeModal({open:false,requiredPlan:null}) }]}>
+          secondaryActions={[{ content:"View All Plans", onAction:()=>navigate("/app/pricing") },{ content:"Cancel", onAction:()=>setUpgradeModal({open:false,requiredPlan:null}) }]}>
           <Modal.Section>
             <BlockStack gap="400">
               <div style={{ textAlign:"center", padding:"20px 0" }}>
