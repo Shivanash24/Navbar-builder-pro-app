@@ -152,14 +152,23 @@ export const action = async ({ request }) => {
 
     const returnUrl = `${appUrl}/billing/callback?shop=${encodeURIComponent(shop)}`;
     
-    await billing.request({
-      plan: planName,
-      isTest: process.env.SHOPIFY_BILLING_TEST !== "false",
-      returnUrl,
-    });
-    
-    // If billing.request doesn't throw a redirect, the plan is already active
-    return Response.json({ success: true, message: "Plan already active." });
+    try {
+      await billing.request({
+        plan: planName,
+        isTest: process.env.SHOPIFY_BILLING_TEST !== "false",
+        returnUrl,
+      });
+      return Response.json({ success: true, message: "Plan already active." });
+    } catch (error) {
+      if (error instanceof Response) {
+        const location = error.headers.get("Location");
+        if (location) return Response.json({ redirectUrl: location });
+        
+        const reAuthUrl = error.headers.get("X-Shopify-API-Request-Failure-Reauthorize-Url");
+        if (reAuthUrl) return Response.json({ redirectUrl: reAuthUrl });
+      }
+      throw error;
+    }
   }
 
   return Response.json({ success: false });
@@ -261,11 +270,19 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!actionData) return;
+    
+    if (actionData.redirectUrl) {
+      if (typeof window !== "undefined") {
+        window.open(actionData.redirectUrl, "_top");
+      }
+      return;
+    }
+
     if (actionData?.success && actionData.message) { setToastMessage(actionData.message); setToastActive(true); }
     else if (actionData?.error) { setToastMessage(actionData.error); setToastActive(true); }
   }, [actionData]);
 
-  const handleApply = (design) => {
+  const handleApply = async (design) => {
     if (!canAccessDesign(design.id, plan)) {
       setUpgradeModal({ open:true, requiredPlan: design.requiredPlan });
       return;
@@ -274,11 +291,15 @@ export default function Dashboard() {
     const fd = new FormData();
     fd.append("designId", design.id); fd.append("menuItems", JSON.stringify(menuItems)); fd.append("actionType", "apply");
     
-    // With Shopify App Bridge v4, the authorization header is automatically appended to fetches
-    submit(fd, { method: "post" });
+    try {
+      const token = await window.shopify.idToken();
+      submit(fd, { method: "post", action: `/app?id_token=${token}` });
+    } catch (e) {
+      submit(fd, { method: "post", action: "/app" });
+    }
   };
 
-  const confirmUpgrade = () => {
+  const confirmUpgrade = async () => {
     const { requiredPlan } = upgradeModal;
     setUpgradeModal({ open: false, requiredPlan: null });
     setBillingLoading(true);
@@ -287,8 +308,12 @@ export default function Dashboard() {
     fd.append("planType", requiredPlan);
     fd.append("actionType", "upgrade"); // Send upgrade action to THIS route
 
-    // With Shopify App Bridge v4, the authorization header is automatically appended to fetches
-    submit(fd, { method: "post" });
+    try {
+      const token = await window.shopify.idToken();
+      submit(fd, { method: "post", action: `/app?id_token=${token}` });
+    } catch (e) {
+      submit(fd, { method: "post", action: "/app" });
+    }
   };
 
   const renderLivePreview = () => {

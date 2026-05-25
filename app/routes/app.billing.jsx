@@ -89,14 +89,23 @@ export async function action({ request }) {
     `[billing action] shop=${shop} plan=${planName} returnUrl=${returnUrl}`
   );
 
-  await billing.request({
-    plan: planName,
-    isTest: process.env.SHOPIFY_BILLING_TEST !== "false",
-    returnUrl,
-  });
-
-  // Normally billing.request() throws a redirect Response — if it somehow returns, treat as success
-  return Response.json({ success: true, message: "Plan already active." });
+  try {
+    await billing.request({
+      plan: planName,
+      isTest: process.env.SHOPIFY_BILLING_TEST !== "false",
+      returnUrl,
+    });
+    return Response.json({ success: true, message: "Plan already active." });
+  } catch (error) {
+    if (error instanceof Response) {
+      const location = error.headers.get("Location");
+      if (location) return Response.json({ redirectUrl: location });
+      
+      const reAuthUrl = error.headers.get("X-Shopify-API-Request-Failure-Reauthorize-Url");
+      if (reAuthUrl) return Response.json({ redirectUrl: reAuthUrl });
+    }
+    throw error;
+  }
 }
 
 // ─── Component ─────────────────────────────────────────────────────────────────
@@ -107,6 +116,13 @@ export default function BillingPage() {
   const actionData = useActionData();
 
   useEffect(() => {
+    if (actionData?.redirectUrl) {
+      if (typeof window !== "undefined") {
+        window.open(actionData.redirectUrl, "_top");
+      }
+      return;
+    }
+
     if (actionData?.message) {
       console.log("[billing page] Success:", actionData.message);
     }

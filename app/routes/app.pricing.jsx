@@ -86,14 +86,28 @@ export const action = async ({ request }) => {
   const returnUrl = `${appUrl}/billing/callback?shop=${encodeURIComponent(shop)}`;
   console.log(`[pricing action] returnUrl=${returnUrl}`);
 
-  await billing.request({
-    plan: planName,
-    isTest: process.env.SHOPIFY_BILLING_TEST !== "false",
-    returnUrl,
-  });
-
-  // If billing.request doesn't throw a redirect, the plan is already active
-  return Response.json({ success: true, message: "Plan already active." });
+  try {
+    await billing.request({
+      plan: planName,
+      isTest: process.env.SHOPIFY_BILLING_TEST !== "false",
+      returnUrl,
+    });
+    return Response.json({ success: true, message: "Plan already active." });
+  } catch (error) {
+    if (error instanceof Response) {
+      const location = error.headers.get("Location");
+      if (location) {
+        return Response.json({ redirectUrl: location });
+      }
+      
+      const reAuthUrl = error.headers.get("X-Shopify-API-Request-Failure-Reauthorize-Url");
+      if (reAuthUrl) {
+        // Return reAuthUrl to let the client handle it via window.open
+        return Response.json({ redirectUrl: reAuthUrl });
+      }
+    }
+    throw error;
+  }
 };
 
 // ─── Component ─────────────────────────────────────────────────────────────────
@@ -110,6 +124,15 @@ export default function PricingPage() {
   useEffect(() => {
     if (!actionData) return;
 
+    if (actionData.redirectUrl) {
+      // Use window.open with _top to instruct App Bridge v4 to navigate the parent window.
+      // This works for both Shopify Billing charge URLs and Reauthorize URLs.
+      if (typeof window !== "undefined") {
+        window.open(actionData.redirectUrl, "_top");
+      }
+      return;
+    }
+
     if (actionData.message) {
       setToastMsg(actionData.message);
       setToastActive(true);
@@ -120,12 +143,16 @@ export default function PricingPage() {
     }
   }, [actionData]);
 
-  const upgrade = (planType) => {
+  const upgrade = async (planType) => {
     const fd = new FormData();
     fd.append("planType", planType);
 
-    // With Shopify App Bridge v4, the authorization header is automatically appended to fetches
-    submit(fd, { method: "post" });
+    try {
+      const token = await window.shopify.idToken();
+      submit(fd, { method: "post", action: `/app/pricing?id_token=${token}` });
+    } catch (e) {
+      submit(fd, { method: "post", action: "/app/pricing" });
+    }
   };
 
   const planLabel = { free: "Free", starter: "Starter", pro: "Pro" }[plan] ?? "Free";
