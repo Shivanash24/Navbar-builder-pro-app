@@ -22,6 +22,11 @@ if (typeof window !== "undefined" && window.history && window.history.state === 
   window.history.replaceState({ key: "default" }, "");
 }
 
+export async function action({ request }) {
+  // If needed, extract form data: const formData = await request.formData();
+  return { ok: true };
+}
+
 export default function App() {
   const { apiKey } = useLoaderData();
 
