@@ -293,9 +293,9 @@ export default function Dashboard() {
     
     try {
       const token = await window.shopify.idToken();
-      submit(fd, { method: "post", action: `/app?id_token=${token}` });
+      submit(fd, { method: "post", action: `/app?index&id_token=${token}` });
     } catch (e) {
-      submit(fd, { method: "post", action: "/app" });
+      submit(fd, { method: "post", action: "/app?index" });
     }
   };
 
@@ -310,9 +310,9 @@ export default function Dashboard() {
 
     try {
       const token = await window.shopify.idToken();
-      submit(fd, { method: "post", action: `/app?id_token=${token}` });
+      submit(fd, { method: "post", action: `/app?index&id_token=${token}` });
     } catch (e) {
-      submit(fd, { method: "post", action: "/app" });
+      submit(fd, { method: "post", action: "/app?index" });
     }
   };
 
